@@ -5,8 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
+	"math/big"
 	"net/http"
 
+	"crypto/rand"
+	"net/smtp"
 	"os"
 	"time"
 
@@ -174,4 +178,92 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		"token":   signedToken,
 		"userid": userID,
 	})
+}
+
+func ForgotPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	// Struct to decode the request payload
+	var request struct {
+		ID int `json:"user_id"`
+	}
+
+	// Decode the request payload
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch user's email from the database using ID
+	var email string
+	err = db.DB.QueryRow("SELECT email FROM users WHERE id=$1", request.ID).Scan(&email)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	// Generate token and expiration time
+	token := generateResetToken()
+	expiration := time.Now().Add(15 * time.Minute) // Token expires in 15 min
+
+	// Store token in database (Insert or Update)
+	_, err = db.DB.Exec(
+		`INSERT INTO reset_tokens (email, token, expires_at) 
+		 VALUES ($1, $2, $3) 
+		 ON CONFLICT(email) 
+		 DO UPDATE SET token=$2, expires_at=$3`,
+		email, token, expiration,
+	)
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Send reset email
+	err = sendResetEmail(email, token)
+	if err != nil {
+		http.Error(w, "Failed to send email", http.StatusInternalServerError)
+		return
+	}
+
+	// Success response
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Password reset email sent successfully!"))
+}
+
+func generateResetToken() string {
+	min := int64(100000)
+	max := int64(999999)
+	rangeVal := max - min + 1
+
+	// Securely generate a random number in the given range
+	num, err := rand.Int(rand.Reader, big.NewInt(rangeVal))
+	if err != nil {
+		panic(err) // Handle error appropriately
+	}
+
+	// Add the minimum value to ensure the token is always 6 digits
+	token := num.Int64() + min
+	return fmt.Sprintf("%d", token)
+}
+
+func sendResetEmail(email, token string) error {
+	SMTP_HOST := os.Getenv("SMTP_HOST")
+	SMTP_PORT := os.Getenv("SMTP_PORT")
+	SMTP_USER := os.Getenv("SMTP_USER")
+	SMTP_PASS := os.Getenv("SMTP_PASS")
+	auth := smtp.PlainAuth("", SMTP_USER, SMTP_PASS, SMTP_HOST)
+
+	subject := "Subject: Password Reset Request\n"
+	body := "Copy this code to reset your password: " + token + "\n"
+	message := []byte(subject + "\n" + body)
+
+	err := smtp.SendMail(SMTP_HOST+":"+SMTP_PORT, auth, SMTP_USER, []string{email}, message)
+	if err != nil {
+		log.Printf("Failed to send email: %v", err)
+		return err
+	}
+
+	log.Println("Password reset email sent successfully!")
+	return nil
 }

@@ -267,3 +267,117 @@ func sendResetEmail(email, token string) error {
 	log.Println("Password reset email sent successfully!")
 	return nil
 }
+
+func VerifyCodeHandler(w http.ResponseWriter, r *http.Request) {
+	// Struct to decode the request payload
+	var request struct {
+		Email string `json:"email"`
+		Token string `json:"token"`
+	}
+
+	// Decode the request payload
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if request.Email == "" || request.Token == "" {
+		http.Error(w, "Email and token are required", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch stored token for the email from the database
+	var storedToken string
+	var expiresAt time.Time
+
+	err = db.DB.QueryRow(
+		"SELECT token, expires_at FROM reset_tokens WHERE email=$1",
+		request.Email,
+	).Scan(&storedToken, &expiresAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "No reset request found for this email", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if the token has expired
+	if time.Now().After(expiresAt) {
+		http.Error(w, "Token has expired", http.StatusUnauthorized)
+		return
+	}
+
+	// Check if the token matches
+	if storedToken != request.Token {
+		http.Error(w, "Invalid verification code", http.StatusUnauthorized)
+		return
+	}
+
+	// Success response
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Verification successful"))
+}
+
+
+func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	// Struct to decode the request payload
+	var request struct {
+		Email       string `json:"email"`
+		NewPassword string `json:"new_password"`
+	}
+
+	// Decode the request payload
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if request.Email == "" || request.NewPassword == "" {
+		http.Error(w, "Email and new password are required", http.StatusBadRequest)
+		return
+	}
+
+	// Check if the user exists
+	var existingEmail string
+	err = db.DB.QueryRow(
+		"SELECT email FROM users WHERE email=$1",
+		request.Email,
+	).Scan(&existingEmail)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Hash the new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+		return
+	}
+
+	// Update the user's password in the database
+	_, err = db.DB.Exec(
+		"UPDATE users SET password=$1 WHERE email=$2",
+		hashedPassword, request.Email,
+	)
+	if err != nil {
+		fmt.Println("Error updating password:", err)
+		http.Error(w, "Failed to update password", http.StatusInternalServerError)
+		return
+	}
+
+	// Success response
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Password reset successfully"))
+}
+

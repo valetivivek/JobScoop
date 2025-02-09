@@ -5,14 +5,6 @@ import (
 	"log"
 )
 
-// User represents the user model.
-type User struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
 // CreateUserTable creates the users table in the database if it doesn't exist.
 func CreateUserTable() {
 	query := `

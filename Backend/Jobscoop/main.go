@@ -13,6 +13,7 @@ func main() {
 	// Initialize the DB connection
 	db.ConnectDB()
 	models.CreateUserTable()
+	models.CreateResetTokensTable()
 	// Register your routes
 	var router = routes.RegisterRoutes()
 

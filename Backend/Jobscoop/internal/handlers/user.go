@@ -27,17 +27,21 @@ type Claims struct {
 
 func SignupHandler(w http.ResponseWriter, r *http.Request) {
 	var user User
+
+	// Decode the request payload
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
+	// Validate input fields
 	if user.Email == "" || user.Password == "" || user.Name == "" {
 		http.Error(w, "Missing fields", http.StatusBadRequest)
 		return
 	}
 
+	// Check if the user already exists
 	var exists bool
 	err = db.DB.QueryRow("SELECT EXISTS (SELECT 1 FROM users WHERE email=$1)", user.Email).Scan(&exists)
 	if err != nil {
@@ -50,21 +54,55 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Hash the password before storing it
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Password hashing failed", http.StatusInternalServerError)
 		return
 	}
 
-	_, err = db.DB.Exec("INSERT INTO users (name, email, password) VALUES ($1, $2, $3)", user.Name, user.Email, string(hashedPassword))
+	// Insert the new user into the database
+	result, err := db.DB.Exec("INSERT INTO users (name, email, password) VALUES ($1, $2, $3)", user.Name, user.Email, string(hashedPassword))
 	if err != nil {
 		http.Error(w, "Error inserting user", http.StatusInternalServerError)
 		return
 	}
 
+	// Fetch the newly created user ID for JWT claims
+	userID, err := result.LastInsertId()
+	if err != nil {
+		http.Error(w, "Error retrieving user ID", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate JWT token
+	expirationTime := time.Now().Add(1 * time.Hour) // Token expires in 24 hours
+	claims := &Claims{
+		UserID: int(userID), // Store user ID in token claims
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			Issuer: "jobscoop",
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString([]byte(os.Getenv("JWT_TOKEN")))
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "Error signing the token", http.StatusInternalServerError)
+		return
+	}
+
+	// Send the JWT token as the response
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("User created successfully"))
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "User created successfully",
+		"token":   signedToken,
+		"userid":  userID,
+	})
 }
+
 
 // LoginHandler for authenticating user and issuing JWT token
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -108,12 +146,12 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Successfully authenticated, create the JWT token
-	expirationTime := time.Now().Add(24 * time.Hour) // Set expiration time for 24 hours
+	expirationTime := time.Now().Add(1 * time.Hour) // Set expiration time for 24 hours
 	claims := &Claims{
 		UserID: userID, // Store the user ID in the token claims
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			Issuer:    "jobscoop", // You can customize this
+			Issuer: "jobscoop", // You can customize this
 		},
 	}
 
@@ -131,8 +169,9 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// Send the JWT token as the response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Login successful",
 		"token":   signedToken,
+		"userid": userID,
 	})
 }

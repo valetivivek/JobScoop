@@ -264,6 +264,6 @@ func sendResetEmail(email, token string) error {
 		return err
 	}
 
-	log.Println("Password reset email sent successfully!")
+	log.Println("Password reset email sent successfully")
 	return nil
 }

@@ -66,21 +66,22 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Insert the new user into the database
-	result, err := db.DB.Exec("INSERT INTO users (name, email, password) VALUES ($1, $2, $3)", user.Name, user.Email, string(hashedPassword))
+	_, err = db.DB.Exec("INSERT INTO users (name, email, password) VALUES ($1, $2, $3)", user.Name, user.Email, string(hashedPassword))
 	if err != nil {
 		http.Error(w, "Error inserting user", http.StatusInternalServerError)
 		return
 	}
 
 	// Fetch the newly created user ID for JWT claims
-	userID, err := result.LastInsertId()
+	var userID int
+	err = db.DB.QueryRow("SELECT id FROM users WHERE email = $1", user.Email).Scan(&userID)
 	if err != nil {
-		http.Error(w, "Error retrieving user ID", http.StatusInternalServerError)
+		http.Error(w, "Error fetching user ID", http.StatusInternalServerError)
 		return
 	}
 
 	// Generate JWT token
-	expirationTime := time.Now().Add(1 * time.Hour) // Token expires in 24 hours
+	expirationTime := time.Now().Add(1 * time.Hour) // Token expires in 1 hour
 	claims := &Claims{
 		UserID: int(userID), // Store user ID in token claims
 		RegisteredClaims: jwt.RegisteredClaims{

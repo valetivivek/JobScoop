@@ -20,6 +20,4 @@ func CreateResetTokensTable() {
 	if err != nil {
 		log.Fatalf("Error creating reset_tokens table: %v", err)
 	}
-
-	log.Println("reset_tokens table created successfully!")
 }

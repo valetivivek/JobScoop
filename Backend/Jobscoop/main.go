@@ -7,18 +7,57 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"context"
+	"time"
 )
 
 func main() {
 	// Initialize the DB connection
 	db.ConnectDB()
+	defer func() {
+		if db.DB != nil {
+			db.DB.Close()
+			fmt.Println("Database connection closed successfully.")
+		}
+	}()
+
+	// Create tables
 	models.CreateUserTable()
 	models.CreateResetTokensTable()
-	// Register your routes
-	var router = routes.RegisterRoutes()
 
-	// Start the server
+	// Register your routes
+	router := routes.RegisterRoutes()
+
+	// Start the server in a separate goroutine
 	port := "8080"
-	fmt.Println("Server running on port", port)
-	log.Fatal(http.ListenAndServe(":"+port, router)) // Start the server using Mux router
+	server := &http.Server{
+		Addr:    ":" + port,
+		Handler: router,
+	}
+
+	go func() {
+		fmt.Println("Server running on port", port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Could not listen on port %s: %v\n", port, err)
+		}
+	}()
+
+	// Wait for an interrupt signal to gracefully shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+	fmt.Println("\nShutting down server...")
+
+	// Create a context with timeout to ensure cleanup
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	fmt.Println("Server exiting")
 }

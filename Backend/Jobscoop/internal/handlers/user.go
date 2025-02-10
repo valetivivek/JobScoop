@@ -184,7 +184,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 func ForgotPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	// Struct to decode the request payload
 	var request struct {
-		ID int `json:"user_id"`
+		Email string `json:"email"`
 	}
 
 	// Decode the request payload
@@ -194,11 +194,19 @@ func ForgotPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch user's email from the database using ID
-	var email string
-	err = db.DB.QueryRow("SELECT email FROM users WHERE id=$1", request.ID).Scan(&email)
+	email := request.Email
+
+	// Check if the email exists in the users table
+	var exists bool
+	err = db.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email=$1)", email).Scan(&exists)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// If the email doesn't exist, inform the user to sign up first
+	if !exists {
+		http.Error(w, "User does not exist, can't reset password. Please sign up first.", http.StatusNotFound)
 		return
 	}
 

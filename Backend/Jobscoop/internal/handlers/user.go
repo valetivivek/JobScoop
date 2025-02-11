@@ -212,7 +212,7 @@ func ForgotPasswordHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Generate token and expiration time
 	token := generateResetToken()
-	expiration := time.Now().Add(15 * time.Minute) // Token expires in 15 min
+	expiration := time.Now().UTC().Add(15 * time.Minute) // Token expires in 15 min
 
 	// Store token in database (Insert or Update)
 	_, err = db.DB.Exec(
@@ -315,7 +315,7 @@ func VerifyCodeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the token has expired
-	if time.Now().After(expiresAt) {
+	if time.Now().UTC().After(expiresAt) {
 		http.Error(w, "Token has expired", http.StatusUnauthorized)
 		return
 	}

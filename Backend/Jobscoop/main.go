@@ -28,6 +28,8 @@ func main() {
 	models.CreateUserTable()
 	models.CreateResetTokensTable()
 	models.CreateCompanyTable()
+	models.CreateCareerSiteTable()
+	models.CreateRoleTable()
 
 	// Register your routes
 	router := routes.RegisterRoutes()

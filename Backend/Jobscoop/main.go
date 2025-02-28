@@ -30,6 +30,7 @@ func main() {
 	models.CreateCompanyTable()
 	models.CreateCareerSiteTable()
 	models.CreateRoleTable()
+	models.CreateSubscriptionTable()
 
 	// Register your routes
 	router := routes.RegisterRoutes()

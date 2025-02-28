@@ -4,13 +4,13 @@ import (
 	"JobScoop/internal/db" // Import the db package
 	"JobScoop/internal/models"
 	"JobScoop/routes" // Import the routes package (where you define your routes)
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"context"
 	"time"
 )
 
@@ -27,6 +27,9 @@ func main() {
 	// Create tables
 	models.CreateUserTable()
 	models.CreateResetTokensTable()
+	models.CreateCompanyTable()
+	models.CreateCareerSiteTable()
+	models.CreateRoleTable()
 
 	// Register your routes
 	router := routes.RegisterRoutes()

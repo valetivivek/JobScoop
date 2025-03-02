@@ -588,3 +588,92 @@ func DeleteSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
         "status":  "success",
     })
 }
+
+// FetchAllSubscriptionsResponse represents the JSON structure of the response.
+type FetchAllSubscriptionsResponse struct {
+	Companies map[string][]string `json:"companies"`
+	Roles     []string            `json:"roles"`
+}
+
+// FetchAllSubscriptionsHandler fetches all companies with their career links and all roles.
+func FetchAllSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
+	// 1. Query companies table to fetch all company IDs and names.
+	companyRows, err := db.DB.Query("SELECT id, name FROM companies")
+	if err != nil {
+		http.Error(w, `{"message": "Error fetching companies"}`, http.StatusInternalServerError)
+		return
+	}
+	defer companyRows.Close()
+
+	// Build a mapping from company id to company name,
+	// and initialize a result map to hold company name -> career links.
+	companies := make(map[int]string)
+	companiesMap := make(map[string][]string)
+	for companyRows.Next() {
+		var id int
+		var name string
+		if err := companyRows.Scan(&id, &name); err != nil {
+			http.Error(w, `{"message": "Error scanning companies"}`, http.StatusInternalServerError)
+			return
+		}
+		companies[id] = name
+		companiesMap[name] = []string{} // initialize slice for career links
+	}
+	if err := companyRows.Err(); err != nil {
+		http.Error(w, `{"message": "Error iterating companies"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// 2. For each company, query the career_sites table to fetch all links.
+	for companyID, companyName := range companies {
+		csRows, err := db.DB.Query("SELECT link FROM career_sites WHERE company_id = $1", companyID)
+		if err != nil {
+			http.Error(w, `{"message": "Error fetching career sites"}`, http.StatusInternalServerError)
+			return
+		}
+		var links []string
+		for csRows.Next() {
+			var link string
+			if err := csRows.Scan(&link); err != nil {
+				csRows.Close()
+				http.Error(w, `{"message": "Error scanning career site"}`, http.StatusInternalServerError)
+				return
+			}
+			links = append(links, link)
+		}
+		csRows.Close()
+		companiesMap[companyName] = links
+	}
+
+	// 3. Query roles table to fetch all role names.
+	roleRows, err := db.DB.Query("SELECT name FROM roles")
+	if err != nil {
+		http.Error(w, `{"message": "Error fetching roles"}`, http.StatusInternalServerError)
+		return
+	}
+	defer roleRows.Close()
+
+	var roles []string
+	for roleRows.Next() {
+		var roleName string
+		if err := roleRows.Scan(&roleName); err != nil {
+			http.Error(w, `{"message": "Error scanning roles"}`, http.StatusInternalServerError)
+			return
+		}
+		roles = append(roles, roleName)
+	}
+	if err := roleRows.Err(); err != nil {
+		http.Error(w, `{"message": "Error iterating roles"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// 4. Build and send the final JSON response.
+	response := FetchAllSubscriptionsResponse{
+		Companies: companiesMap,
+		Roles:     roles,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}

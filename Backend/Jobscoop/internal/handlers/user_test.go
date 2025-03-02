@@ -1,14 +1,17 @@
 package handlers
 
 import (
+	"JobScoop/internal/db"
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"time"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"golang.org/x/crypto/bcrypt"
@@ -337,120 +340,230 @@ func TestForgotPasswordHandler(t *testing.T) {
 	}
 }
 
-
 func TestVerifyCodeHandler(t *testing.T) {
-    db, mock, err := sqlmock.New()
-    if err != nil {
-        t.Fatalf("Error initializing mock database: %v", err)
-    }
-    defer db.Close()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("Error initializing mock database: %v", err)
+	}
+	defer db.Close()
 
-    originalDb := GetDB()
-    SetDB(db)
-    defer SetDB(originalDb)
+	originalDb := GetDB()
+	SetDB(db)
+	defer SetDB(originalDb)
 
-    tests := []struct {
-        name         string
-        requestBody  map[string]string
-        mockSetup    func()
-        expectedCode int
-        expectedMsg  string
-    }{
-        {
-            name: "Successful Verification",
-            requestBody: map[string]string{
-                "email": "john@example.com",
-                "token": "valid_token",
-            },
-            mockSetup: func() {
-                mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
-                    WithArgs("john@example.com").
-                    WillReturnRows(sqlmock.NewRows([]string{"token", "expires_at"}).
-                        AddRow("valid_token", time.Now().UTC().Add(10*time.Minute)))
-            },
-            expectedCode: http.StatusOK,
-            expectedMsg:  "Verification successful",
-        },
-        {
-            name:         "Invalid Request Payload",
-            requestBody:  map[string]string{},
-            mockSetup:    func() {},
-            expectedCode: http.StatusBadRequest,
-            expectedMsg:  "Email and token are required",
-        },
-        {
-            name: "No Reset Request Found",
-            requestBody: map[string]string{
-                "email": "nonexistent@example.com",
-                "token": "some_token",
-            },
-            mockSetup: func() {
-                mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
-                    WithArgs("nonexistent@example.com").
-                    WillReturnError(sql.ErrNoRows)
-            },
-            expectedCode: http.StatusNotFound,
-            expectedMsg:  "No reset request found for this email",
-        },
-        {
-            name: "Expired Token",
-            requestBody: map[string]string{
-                "email": "john@example.com",
-                "token": "expired_token",
-            },
-            mockSetup: func() {
-                mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
-                    WithArgs("john@example.com").
-                    WillReturnRows(sqlmock.NewRows([]string{"token", "expires_at"}).
-                        AddRow("expired_token", time.Now().UTC().Add(-10*time.Minute)))
-            },
-            expectedCode: http.StatusUnauthorized,
-            expectedMsg:  "Token has expired",
-        },
-        {
-            name: "Invalid Token",
-            requestBody: map[string]string{
-                "email": "john@example.com",
-                "token": "wrong_token",
-            },
-            mockSetup: func() {
-                mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
-                    WithArgs("john@example.com").
-                    WillReturnRows(sqlmock.NewRows([]string{"token", "expires_at"}).
-                        AddRow("valid_token", time.Now().UTC().Add(10*time.Minute)))
-            },
-            expectedCode: http.StatusUnauthorized,
-            expectedMsg:  "Invalid verification code",
-        },
-    }
+	tests := []struct {
+		name         string
+		requestBody  map[string]string
+		mockSetup    func()
+		expectedCode int
+		expectedMsg  string
+	}{
+		{
+			name: "Successful Verification",
+			requestBody: map[string]string{
+				"email": "john@example.com",
+				"token": "valid_token",
+			},
+			mockSetup: func() {
+				mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
+					WithArgs("john@example.com").
+					WillReturnRows(sqlmock.NewRows([]string{"token", "expires_at"}).
+						AddRow("valid_token", time.Now().UTC().Add(10*time.Minute)))
+			},
+			expectedCode: http.StatusOK,
+			expectedMsg:  "Verification successful",
+		},
+		{
+			name:         "Invalid Request Payload",
+			requestBody:  map[string]string{},
+			mockSetup:    func() {},
+			expectedCode: http.StatusBadRequest,
+			expectedMsg:  "Email and token are required",
+		},
+		{
+			name: "No Reset Request Found",
+			requestBody: map[string]string{
+				"email": "nonexistent@example.com",
+				"token": "some_token",
+			},
+			mockSetup: func() {
+				mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
+					WithArgs("nonexistent@example.com").
+					WillReturnError(sql.ErrNoRows)
+			},
+			expectedCode: http.StatusNotFound,
+			expectedMsg:  "No reset request found for this email",
+		},
+		{
+			name: "Expired Token",
+			requestBody: map[string]string{
+				"email": "john@example.com",
+				"token": "expired_token",
+			},
+			mockSetup: func() {
+				mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
+					WithArgs("john@example.com").
+					WillReturnRows(sqlmock.NewRows([]string{"token", "expires_at"}).
+						AddRow("expired_token", time.Now().UTC().Add(-10*time.Minute)))
+			},
+			expectedCode: http.StatusUnauthorized,
+			expectedMsg:  "Token has expired",
+		},
+		{
+			name: "Invalid Token",
+			requestBody: map[string]string{
+				"email": "john@example.com",
+				"token": "wrong_token",
+			},
+			mockSetup: func() {
+				mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
+					WithArgs("john@example.com").
+					WillReturnRows(sqlmock.NewRows([]string{"token", "expires_at"}).
+						AddRow("valid_token", time.Now().UTC().Add(10*time.Minute)))
+			},
+			expectedCode: http.StatusUnauthorized,
+			expectedMsg:  "Invalid verification code",
+		},
+	}
 
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            tt.mockSetup()
-            reqBody, _ := json.Marshal(tt.requestBody)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			reqBody, _ := json.Marshal(tt.requestBody)
 
-            req, err := http.NewRequest("POST", "/verify-code", bytes.NewBuffer(reqBody))
-            if err != nil {
-                t.Fatalf("Could not create request: %v", err)
-            }
-            req.Header.Set("Content-Type", "application/json")
+			req, err := http.NewRequest("POST", "/verify-code", bytes.NewBuffer(reqBody))
+			if err != nil {
+				t.Fatalf("Could not create request: %v", err)
+			}
+			req.Header.Set("Content-Type", "application/json")
 
-            rr := httptest.NewRecorder()
-            handler := http.HandlerFunc(VerifyCodeHandler)
-            handler.ServeHTTP(rr, req)
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(VerifyCodeHandler)
+			handler.ServeHTTP(rr, req)
 
-            if rr.Code != tt.expectedCode {
-                t.Errorf("Expected status %d, got %d", tt.expectedCode, rr.Code)
-            }
+			if rr.Code != tt.expectedCode {
+				t.Errorf("Expected status %d, got %d", tt.expectedCode, rr.Code)
+			}
 
-            var response map[string]interface{}
-            json.Unmarshal(rr.Body.Bytes(), &response)
+			var response map[string]interface{}
+			json.Unmarshal(rr.Body.Bytes(), &response)
 
-            if message, exists := response["message"]; exists {
-                if message != tt.expectedMsg {
-                    t.Errorf("Expected message '%s', got '%s'", tt.expectedMsg, message)
-                }
-            }
-        })
-    }
+			if message, exists := response["message"]; exists {
+				if message != tt.expectedMsg {
+					t.Errorf("Expected message '%s', got '%s'", tt.expectedMsg, message)
+				}
+			}
+		})
+	}
+}
+
+func TestResetPasswordHandler(t *testing.T) {
+	// Create a mock database
+	mockDB, mock, _ := sqlmock.New()
+	defer mockDB.Close()
+	db.DB = mockDB // Replace actual DB with mock
+
+	tests := []struct {
+		name           string
+		requestBody    map[string]string
+		prepareMock    func()
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name: "Successful Password Reset",
+			requestBody: map[string]string{
+				"email":        "test@example.com",
+				"new_password": "newpassword123",
+			},
+			prepareMock: func() {
+				mock.ExpectQuery("SELECT email FROM users WHERE email=\\$1").
+					WithArgs("test@example.com").
+					WillReturnRows(sqlmock.NewRows([]string{"email"}).AddRow("test@example.com"))
+
+				mock.ExpectExec("UPDATE users SET password=\\$1 WHERE email=\\$2").
+					WithArgs(sqlmock.AnyArg(), "test@example.com").
+					WillReturnResult(sqlmock.NewResult(1, 1))
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   "Password reset successfully",
+		},
+		{
+			name:           "Invalid Request Payload",
+			requestBody:    map[string]string{},
+			prepareMock:    func() {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "Email and new password are required",
+		},
+		{
+			name: "User Not Found",
+			requestBody: map[string]string{
+				"email":        "nonexistent@example.com",
+				"new_password": "newpassword123",
+			},
+			prepareMock: func() {
+				mock.ExpectQuery("SELECT email FROM users WHERE email=\\$1").
+					WithArgs("nonexistent@example.com").
+					WillReturnError(sql.ErrNoRows)
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   "User not found",
+		},
+		{
+			name: "Database Error on User Lookup",
+			requestBody: map[string]string{
+				"email":        "test@example.com",
+				"new_password": "newpassword123",
+			},
+			prepareMock: func() {
+				mock.ExpectQuery("SELECT email FROM users WHERE email=\\$1").
+					WithArgs("test@example.com").
+					WillReturnError(errors.New("DB error"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Database error",
+		},
+		{
+			name: "Failed to Update Password",
+			requestBody: map[string]string{
+				"email":        "test@example.com",
+				"new_password": "newpassword123",
+			},
+			prepareMock: func() {
+				mock.ExpectQuery("SELECT email FROM users WHERE email=\\$1").
+					WithArgs("test@example.com").
+					WillReturnRows(sqlmock.NewRows([]string{"email"}).AddRow("test@example.com"))
+
+				mock.ExpectExec("UPDATE users SET password=\\$1 WHERE email=\\$2").
+					WithArgs(sqlmock.AnyArg(), "test@example.com").
+					WillReturnError(errors.New("Update failed"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Failed to update password",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Prepare mock responses
+			tt.prepareMock()
+
+			// Encode request body
+			body, _ := json.Marshal(tt.requestBody)
+			req := httptest.NewRequest("POST", "/reset-password", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+
+			// Create response recorder
+			rec := httptest.NewRecorder()
+			ResetPasswordHandler(rec, req)
+
+			// Validate response
+			if rec.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rec.Code)
+			}
+			if tt.expectedBody != "" && strings.TrimSpace(rec.Body.String()) != tt.expectedBody {
+				t.Errorf("Expected body %q, got %q", tt.expectedBody, rec.Body.String())
+			}
+		})
+	}
 }

@@ -507,3 +507,84 @@ func getCompanyIDIfExists(companyName string) (int, error) {
 	}
 	return companyID, nil
 }
+
+
+// DeleteSubscriptionsRequest represents the expected payload.
+type DeleteSubscriptionsRequest struct {
+    Email         string   `json:"email"`
+    Subscriptions []string `json:"subscriptions"`
+}
+
+// DeleteSubscriptionsHandler deletes subscriptions for the given email and companies.
+func DeleteSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
+    var req DeleteSubscriptionsRequest
+
+    // Decode the request body.
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, `{"message": "Invalid request payload"}`, http.StatusBadRequest)
+        return
+    }
+
+    // Validate that an email is provided.
+    if req.Email == "" {
+        http.Error(w, `{"message": "Email is required"}`, http.StatusBadRequest)
+        return
+    }
+
+    // Validate that there is at least one subscription to delete.
+    if len(req.Subscriptions) == 0 {
+        http.Error(w, `{"message": "No subscriptions provided to delete"}`, http.StatusBadRequest)
+        return
+    }
+
+    // Get the user ID corresponding to the email.
+    userID, err := getUserIDByEmail(req.Email)
+    if err != nil {
+        http.Error(w, `{"message": "User not found"}`, http.StatusNotFound)
+        return
+    }
+
+    foundSubscription := false
+    userSubscriptions := false
+
+    // Loop through each subscription (company name) in the payload.
+    for _, companyName := range req.Subscriptions {
+        // Get the company ID corresponding to the company name.
+        companyID, err := getCompanyIDIfExists(companyName)
+        if err != nil {
+            // If the company doesn't exist, skip it.
+            continue
+        }
+        foundSubscription = true
+
+        // Delete the subscription row where user_id and company_id match.
+        res, err := db.DB.Exec("DELETE FROM subscriptions WHERE user_id=$1 AND company_id=$2", userID, companyID)
+        if err != nil {
+            http.Error(w, `{"message": "Database error while deleting subscription"}`, http.StatusInternalServerError)
+            return
+        }
+        count, err := res.RowsAffected()
+        if err == nil && count > 0 {
+            userSubscriptions = true
+        }
+    }
+
+    // If none of the given company names existed in the companies table.
+    if !foundSubscription {
+        http.Error(w, `{"message": "None of the given subscriptions exist"}`, http.StatusBadRequest)
+        return
+    }
+
+    if !userSubscriptions {
+        http.Error(w, `{"message": "User is not subscribed to any of given subscriptions"}`, http.StatusBadRequest)
+        return
+    }
+
+    // Respond with a success message.
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "message": "Deleted subscription(s) successfully",
+        "status":  "success",
+    })
+}

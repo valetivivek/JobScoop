@@ -8,14 +8,14 @@ import (
 // CreateResetTokensTable creates the reset_tokens table if it does not exist
 func CreateRoleTable() {
 	query := `
-	CREATE TABLE IF NOT EXISTS role (
+	CREATE TABLE IF NOT EXISTS roles (
 		id SERIAL PRIMARY KEY,
-		role TEXT NOT NULL UNIQUE
+		name TEXT NOT NULL UNIQUE
 	);
 	`
 
 	_, err := db.DB.Exec(query)
 	if err != nil {
-		log.Fatalf("Error creating company table: %v", err)
+		log.Fatalf("Error creating roles table: %v", err)
 	}
 }

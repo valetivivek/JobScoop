@@ -227,8 +227,8 @@ type GetSubscriptionsRequest struct {
 	Email string `json:"email"`
 }
 
-// FetchSubscriptionsHandler retrieves subscriptions based on the provided email.
-func FetchSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
+// FetchUserSubscriptionsHandler retrieves subscriptions based on the provided email.
+func FetchUserSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 	// Decode request to get email
 	var req GetSubscriptionsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

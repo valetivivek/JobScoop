@@ -30,8 +30,8 @@ func RegisterRoutes() *mux.Router {
 	router.HandleFunc("/save-subscriptions", subscription.SaveSubscriptionsHandler).Methods(http.MethodPost)
 	router.HandleFunc("/save-subscriptions", subscription.SaveSubscriptionsHandler).Methods(http.MethodOptions)
 
-	router.HandleFunc("/fetch-subscriptions", subscription.FetchSubscriptionsHandler).Methods(http.MethodGet)
-	router.HandleFunc("/fetch-subscriptions", subscription.FetchSubscriptionsHandler).Methods(http.MethodOptions)
+	router.HandleFunc("/fetch-user-subscriptions", subscription.FetchUserSubscriptionsHandler).Methods(http.MethodGet)
+	router.HandleFunc("/fetch-user-subscriptions", subscription.FetchUserSubscriptionsHandler).Methods(http.MethodOptions)
 
 	router.HandleFunc("/update-subscriptions", subscription.UpdateSubscriptionsHandler).Methods(http.MethodPut)
 	router.HandleFunc("/update-subscriptions", subscription.UpdateSubscriptionsHandler).Methods(http.MethodOptions)

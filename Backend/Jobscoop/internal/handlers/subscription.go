@@ -57,7 +57,7 @@ func SaveSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		// Process new career site links
 		var newCareerSiteIDs []int
 		for _, link := range sub.CareerLinks {
-			careerSiteID, err := getOrCreateCareerSiteID(link)
+			careerSiteID, err := getOrCreateCareerSiteID(link, companyID)
 			if err != nil {
 				http.Error(w, `{"message": "Error processing career site"}`, http.StatusInternalServerError)
 				return
@@ -186,11 +186,11 @@ func getOrCreateCompanyID(companyName string) (int, error) {
 }
 
 // getOrCreateCareerSiteID fetches or inserts a career site
-func getOrCreateCareerSiteID(url string) (int, error) {
+func getOrCreateCareerSiteID(url string, companyID int) (int, error) {
 	var careerSiteID int
 	err := db.DB.QueryRow("SELECT id FROM career_sites WHERE link = $1", url).Scan(&careerSiteID)
 	if err == sql.ErrNoRows {
-		err = db.DB.QueryRow("INSERT INTO career_sites (link) VALUES ($1) RETURNING id", url).Scan(&careerSiteID)
+		err = db.DB.QueryRow("INSERT INTO career_sites (company_id,link) VALUES ($1,$2) RETURNING id", companyID,url).Scan(&careerSiteID)
 		if err != nil {
 			return 0, err
 		}
@@ -429,7 +429,7 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		if updateCareerLinks {
 			for _, link := range sub.CareerLinks {
 				// Using getOrCreate here; if desired you can implement a non-creating variant.
-				careerSiteID, err := getOrCreateCareerSiteID(link)
+				careerSiteID, err := getOrCreateCareerSiteID(link, companyID)
 				if err != nil {
 					http.Error(w, `{"message": "Error processing career site link"}`, http.StatusInternalServerError)
 					return

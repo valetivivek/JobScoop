@@ -10,6 +10,7 @@ func CreateCareerSiteTable() {
 	query := `
 	CREATE TABLE IF NOT EXISTS career_sites (
 		id SERIAL PRIMARY KEY,
+		company_id INT NOT NULL,
 		link TEXT NOT NULL UNIQUE
 	);
 	`

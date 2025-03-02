@@ -217,9 +217,9 @@ func getOrCreateRoleID(roleName string) (int, error) {
 
 // SubscriptionResponse represents the JSON object for each subscription row.
 type SubscriptionResponse struct {
-	CompanyName  string    `json:"companyName"`
-	CareerLinks  []string  `json:"careerLinks"`
-	RoleNames    []string  `json:"roleNames"`
+	CompanyName string   `json:"companyName"`
+	CareerLinks []string `json:"careerLinks"`
+	RoleNames   []string `json:"roleNames"`
 }
 
 // Request struct to get email
@@ -304,9 +304,9 @@ func FetchSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Create a subscription response object
 		subResp := SubscriptionResponse{
-			CompanyName:  companyName,
-			CareerLinks:  careerLinks,
-			RoleNames:    roleNames,
+			CompanyName: companyName,
+			CareerLinks: careerLinks,
+			RoleNames:   roleNames,
 		}
 		subscriptions = append(subscriptions, subResp)
 	}
@@ -319,7 +319,7 @@ func FetchSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 	// Respond with the subscriptions JSON array
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "success",
+		"status":        "success",
 		"subscriptions": subscriptions,
 	})
 }
@@ -352,4 +352,158 @@ func getRoleNameByID(roleID int) (string, error) {
 		return "", err
 	}
 	return roleName, nil
+}
+
+// UpdateSubscriptionsRequest represents the incoming JSON payload.
+type UpdateSubscriptionsRequest struct {
+	Email         string `json:"email"`
+	Subscriptions []struct {
+		CompanyName string   `json:"companyName"`
+		CareerLinks []string `json:"careerLinks,omitempty"`
+		RoleNames   []string `json:"roleNames,omitempty"`
+	} `json:"subscriptions"`
+}
+
+// UpdateSubscriptionsHandler updates subscription records based on the provided payload.
+func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
+	var req UpdateSubscriptionsRequest
+
+	// Decode the request body.
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"message": "Invalid request payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Validate that an email is provided.
+	if req.Email == "" {
+		http.Error(w, `{"message": "Email is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Get the user ID for the given email.
+	userID, err := getUserIDByEmail(req.Email)
+	if err != nil {
+		http.Error(w, `{"message": "User not found. Please sign up."}`, http.StatusNotFound)
+		return
+	}
+
+	// Process each subscription in the payload.
+	for _, sub := range req.Subscriptions {
+		// CompanyName is mandatory.
+		if sub.CompanyName == "" {
+			http.Error(w, `{"message": "CompanyName is required for each subscription"}`, http.StatusBadRequest)
+			return
+		}
+
+		// Get company ID without auto-creation.
+		companyID, err := getCompanyIDIfExists(sub.CompanyName)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"message": "Company '%s' does not exist"}`, sub.CompanyName), http.StatusBadRequest)
+			return
+		}
+
+		// Check if a subscription record exists for this user and company.
+		var subID int
+		query := "SELECT id FROM subscriptions WHERE user_id=$1 AND company_id=$2"
+		err = db.DB.QueryRow(query, userID, companyID).Scan(&subID)
+		if err == sql.ErrNoRows {
+			http.Error(w, fmt.Sprintf(`{"message": "Subscription for the company %s does not exist"}`, sub.CompanyName), http.StatusBadRequest)
+			return
+		} else if err != nil {
+			http.Error(w, `{"message": "Database error while fetching subscription"}`, http.StatusInternalServerError)
+			return
+		}
+
+		// Flags for which fields to update.
+		updateCareerLinks := len(sub.CareerLinks) > 0
+		updateRoleNames := len(sub.RoleNames) > 0
+
+		// If neither field is provided, no update is done.
+		if !updateCareerLinks && !updateRoleNames {
+			http.Error(w, `{"message": "No update fields provided"}`, http.StatusBadRequest)
+			return
+		}
+
+		// Prepare new arrays.
+		var newCareerSiteIDs []int
+		if updateCareerLinks {
+			for _, link := range sub.CareerLinks {
+				// Using getOrCreate here; if desired you can implement a non-creating variant.
+				careerSiteID, err := getOrCreateCareerSiteID(link)
+				if err != nil {
+					http.Error(w, `{"message": "Error processing career site link"}`, http.StatusInternalServerError)
+					return
+				}
+				newCareerSiteIDs = append(newCareerSiteIDs, careerSiteID)
+			}
+		}
+
+		var newRoleIDs []int
+		if updateRoleNames {
+			for _, roleName := range sub.RoleNames {
+				// Using getOrCreate here; adjust as needed.
+				roleID, err := getOrCreateRoleID(roleName)
+				if err != nil {
+					http.Error(w, `{"message": "Error processing role name"}`, http.StatusInternalServerError)
+					return
+				}
+				newRoleIDs = append(newRoleIDs, roleID)
+			}
+		}
+
+		// Convert newCareerSiteIDs and newRoleIDs from []int to []int64
+		newCareerSiteIDs64 := make([]int64, len(newCareerSiteIDs))
+		for i, id := range newCareerSiteIDs {
+			newCareerSiteIDs64[i] = int64(id)
+		}
+		newRoleIDs64 := make([]int64, len(newRoleIDs))
+		for i, id := range newRoleIDs {
+			newRoleIDs64[i] = int64(id)
+		}
+
+		// Build the UPDATE query based on which fields to update.
+		now := time.Now().UTC()
+		if updateCareerLinks && updateRoleNames {
+			_, err = db.DB.Exec(`
+				UPDATE subscriptions 
+				SET career_site_ids=$1, role_ids=$2, interest_time=$3 
+				WHERE user_id=$4 AND company_id=$5`,
+				pq.Array(newCareerSiteIDs64), pq.Array(newRoleIDs64), now, userID, companyID)
+		} else if updateCareerLinks {
+			_, err = db.DB.Exec(`
+				UPDATE subscriptions 
+				SET career_site_ids=$1, interest_time=$2 
+				WHERE user_id=$3 AND company_id=$4`,
+				pq.Array(newCareerSiteIDs64), now, userID, companyID)
+		} else if updateRoleNames {
+			_, err = db.DB.Exec(`
+				UPDATE subscriptions 
+				SET role_ids=$1, interest_time=$2 
+				WHERE user_id=$3 AND company_id=$4`,
+				pq.Array(newRoleIDs64), now, userID, companyID)
+		}
+
+		if err != nil {
+			http.Error(w, `{"message": "Error updating subscription"}`, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Return a success response.
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Subscription(s) updated successfully",
+		"status":  "success",
+	})
+}
+
+// getCompanyIDIfExists retrieves the company id for a given company name without creating a new entry.
+func getCompanyIDIfExists(companyName string) (int, error) {
+	var companyID int
+	err := db.DB.QueryRow("SELECT id FROM companies WHERE name=$1", companyName).Scan(&companyID)
+	if err != nil {
+		return 0, err
+	}
+	return companyID, nil
 }

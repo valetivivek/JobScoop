@@ -29,6 +29,14 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+func SetDB(database *sql.DB) {
+	db.DB = database
+}
+
+func GetDB() *sql.DB {
+	return db.DB
+}
+
 func SignupHandler(w http.ResponseWriter, r *http.Request) {
 	var user User
 
@@ -86,7 +94,7 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 		UserID: int(userID), // Store user ID in token claims
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			Issuer: "jobscoop",
+			Issuer:    "jobscoop",
 		},
 	}
 
@@ -107,7 +115,6 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 		"userid":  userID,
 	})
 }
-
 
 // LoginHandler for authenticating user and issuing JWT token
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +163,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		UserID: userID, // Store the user ID in the token claims
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			Issuer: "jobscoop", // You can customize this
+			Issuer:    "jobscoop", // You can customize this
 		},
 	}
 
@@ -177,9 +184,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Login successful",
 		"token":   signedToken,
-		"userid": userID,
+		"userid":  userID,
 	})
 }
+
+var sendResetEmailFunc = sendResetEmail // Assign function to a variable for mocking
 
 func ForgotPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	// Struct to decode the request payload
@@ -229,7 +238,7 @@ func ForgotPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send reset email
-	err = sendResetEmail(email, token)
+	err = sendResetEmailFunc(email, token)
 	if err != nil {
 		http.Error(w, "Failed to send email", http.StatusInternalServerError)
 		return
@@ -331,7 +340,6 @@ func VerifyCodeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Verification successful"))
 }
 
-
 func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	// Struct to decode the request payload
 	var request struct {
@@ -389,4 +397,3 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Password reset successfully"))
 }
-

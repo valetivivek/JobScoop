@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
-
 	"github.com/DATA-DOG/go-sqlmock"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func init() {
@@ -127,4 +127,111 @@ func TestSignupHandler(t *testing.T) {
 		})
 	}
 
+}
+
+
+func TestLoginHandler(t *testing.T) {
+    db, mock, err := sqlmock.New()
+    if err != nil {
+        t.Fatalf("Error initializing mock database: %v", err)
+    }
+    defer db.Close()
+
+    originalDb := GetDB()
+    SetDB(db)
+    defer SetDB(originalDb)
+
+    // Hash a sample password for comparison
+    hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("securepassword"), bcrypt.DefaultCost)
+
+    tests := []struct {
+        name         string
+        requestBody  map[string]string
+        mockSetup    func()
+        expectedCode int
+        expectedMsg  string
+    }{
+        {
+            name: "Successful Login",
+            requestBody: map[string]string{
+                "email":    "john@example.com",
+                "password": "securepassword",
+            },
+            mockSetup: func() {
+                mock.ExpectQuery("SELECT id, password FROM users WHERE email=\\$1").
+                    WithArgs("john@example.com").
+                    WillReturnRows(sqlmock.NewRows([]string{"id", "password"}).AddRow(1, string(hashedPassword)))
+            },
+            expectedCode: http.StatusOK,
+            expectedMsg:  "Login successful",
+        },
+        {
+            name: "User Does Not Exist",
+            requestBody: map[string]string{
+                "email":    "nonexistent@example.com",
+                "password": "somepassword",
+            },
+            mockSetup: func() {
+                mock.ExpectQuery("SELECT id, password FROM users WHERE email=\\$1").
+                    WithArgs("nonexistent@example.com").
+                    WillReturnError(sql.ErrNoRows)
+            },
+            expectedCode: http.StatusNotFound,
+            expectedMsg:  "User does not exist. Please sign up.",
+        },
+        {
+            name: "Invalid Password",
+            requestBody: map[string]string{
+                "email":    "john@example.com",
+                "password": "wrongpassword",
+            },
+            mockSetup: func() {
+                mock.ExpectQuery("SELECT id, password FROM users WHERE email=\\$1").
+                    WithArgs("john@example.com").
+                    WillReturnRows(sqlmock.NewRows([]string{"id", "password"}).AddRow(1, string(hashedPassword)))
+            },
+            expectedCode: http.StatusUnauthorized,
+            expectedMsg:  "Invalid credentials",
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            // Setup mock expectations
+            tt.mockSetup()
+
+            // Convert requestBody to JSON
+            reqBody, _ := json.Marshal(tt.requestBody)
+
+            // Create HTTP request
+            req, err := http.NewRequest("POST", "/login", bytes.NewBuffer(reqBody))
+            if err != nil {
+                t.Fatalf("Could not create request: %v", err)
+            }
+            req.Header.Set("Content-Type", "application/json")
+
+            // Create a response recorder
+            rr := httptest.NewRecorder()
+
+            // Call the handler
+            handler := http.HandlerFunc(LoginHandler)
+            handler.ServeHTTP(rr, req)
+
+            // Check status code
+            if rr.Code != tt.expectedCode {
+                t.Errorf("Expected status %d, got %d", tt.expectedCode, rr.Code)
+            }
+
+            // Parse response body
+            var response map[string]interface{}
+            json.Unmarshal(rr.Body.Bytes(), &response)
+
+            // Check response message
+            if message, exists := response["message"]; exists {
+                if message != tt.expectedMsg {
+                    t.Errorf("Expected message '%s', got '%s'", tt.expectedMsg, message)
+                }
+            }
+        })
+    }
 }

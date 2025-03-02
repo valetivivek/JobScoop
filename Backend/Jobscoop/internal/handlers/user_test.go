@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"time"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -334,4 +335,122 @@ func TestForgotPasswordHandler(t *testing.T) {
 			}
 		})
 	}
+}
+
+
+func TestVerifyCodeHandler(t *testing.T) {
+    db, mock, err := sqlmock.New()
+    if err != nil {
+        t.Fatalf("Error initializing mock database: %v", err)
+    }
+    defer db.Close()
+
+    originalDb := GetDB()
+    SetDB(db)
+    defer SetDB(originalDb)
+
+    tests := []struct {
+        name         string
+        requestBody  map[string]string
+        mockSetup    func()
+        expectedCode int
+        expectedMsg  string
+    }{
+        {
+            name: "Successful Verification",
+            requestBody: map[string]string{
+                "email": "john@example.com",
+                "token": "valid_token",
+            },
+            mockSetup: func() {
+                mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
+                    WithArgs("john@example.com").
+                    WillReturnRows(sqlmock.NewRows([]string{"token", "expires_at"}).
+                        AddRow("valid_token", time.Now().UTC().Add(10*time.Minute)))
+            },
+            expectedCode: http.StatusOK,
+            expectedMsg:  "Verification successful",
+        },
+        {
+            name:         "Invalid Request Payload",
+            requestBody:  map[string]string{},
+            mockSetup:    func() {},
+            expectedCode: http.StatusBadRequest,
+            expectedMsg:  "Email and token are required",
+        },
+        {
+            name: "No Reset Request Found",
+            requestBody: map[string]string{
+                "email": "nonexistent@example.com",
+                "token": "some_token",
+            },
+            mockSetup: func() {
+                mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
+                    WithArgs("nonexistent@example.com").
+                    WillReturnError(sql.ErrNoRows)
+            },
+            expectedCode: http.StatusNotFound,
+            expectedMsg:  "No reset request found for this email",
+        },
+        {
+            name: "Expired Token",
+            requestBody: map[string]string{
+                "email": "john@example.com",
+                "token": "expired_token",
+            },
+            mockSetup: func() {
+                mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
+                    WithArgs("john@example.com").
+                    WillReturnRows(sqlmock.NewRows([]string{"token", "expires_at"}).
+                        AddRow("expired_token", time.Now().UTC().Add(-10*time.Minute)))
+            },
+            expectedCode: http.StatusUnauthorized,
+            expectedMsg:  "Token has expired",
+        },
+        {
+            name: "Invalid Token",
+            requestBody: map[string]string{
+                "email": "john@example.com",
+                "token": "wrong_token",
+            },
+            mockSetup: func() {
+                mock.ExpectQuery("SELECT token, expires_at FROM reset_tokens WHERE email=\\$1").
+                    WithArgs("john@example.com").
+                    WillReturnRows(sqlmock.NewRows([]string{"token", "expires_at"}).
+                        AddRow("valid_token", time.Now().UTC().Add(10*time.Minute)))
+            },
+            expectedCode: http.StatusUnauthorized,
+            expectedMsg:  "Invalid verification code",
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            tt.mockSetup()
+            reqBody, _ := json.Marshal(tt.requestBody)
+
+            req, err := http.NewRequest("POST", "/verify-code", bytes.NewBuffer(reqBody))
+            if err != nil {
+                t.Fatalf("Could not create request: %v", err)
+            }
+            req.Header.Set("Content-Type", "application/json")
+
+            rr := httptest.NewRecorder()
+            handler := http.HandlerFunc(VerifyCodeHandler)
+            handler.ServeHTTP(rr, req)
+
+            if rr.Code != tt.expectedCode {
+                t.Errorf("Expected status %d, got %d", tt.expectedCode, rr.Code)
+            }
+
+            var response map[string]interface{}
+            json.Unmarshal(rr.Body.Bytes(), &response)
+
+            if message, exists := response["message"]; exists {
+                if message != tt.expectedMsg {
+                    t.Errorf("Expected message '%s', got '%s'", tt.expectedMsg, message)
+                }
+            }
+        })
+    }
 }

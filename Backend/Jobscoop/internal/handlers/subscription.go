@@ -214,3 +214,142 @@ func getOrCreateRoleID(roleName string) (int, error) {
 	}
 	return roleID, nil
 }
+
+// SubscriptionResponse represents the JSON object for each subscription row.
+type SubscriptionResponse struct {
+	CompanyName  string    `json:"companyName"`
+	CareerLinks  []string  `json:"careerLinks"`
+	RoleNames    []string  `json:"roleNames"`
+}
+
+// Request struct to get email
+type GetSubscriptionsRequest struct {
+	Email string `json:"email"`
+}
+
+// FetchSubscriptionsHandler retrieves subscriptions based on the provided email.
+func FetchSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
+	// Decode request to get email
+	var req GetSubscriptionsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"message": "Invalid request payload"}`, http.StatusBadRequest)
+		return
+	}
+	if req.Email == "" {
+		http.Error(w, `{"message": "Email is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Get user ID from email
+	userID, err := getUserIDByEmail(req.Email)
+	if err != nil {
+		http.Error(w, `{"message": "User not found"}`, http.StatusNotFound)
+		return
+	}
+
+	// Query subscriptions for the user
+	rows, err := db.DB.Query(`
+		SELECT id, company_id, career_site_ids, role_ids 
+		FROM subscriptions 
+		WHERE user_id=$1`, userID)
+	if err != nil {
+		http.Error(w, `{"message": "Database error fetching subscriptions"}`, http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// Array to hold subscription responses
+	var subscriptions []SubscriptionResponse
+
+	// Loop through each subscription row
+	for rows.Next() {
+		var id int
+		var companyID int
+		var careerSiteIDs []int64
+		var roleIDs []int64
+
+		if err := rows.Scan(&id, &companyID, pq.Array(&careerSiteIDs), pq.Array(&roleIDs)); err != nil {
+			http.Error(w, `{"message": "Error scanning subscription row"}`, http.StatusInternalServerError)
+			return
+		}
+
+		// Get the company name
+		companyName, err := getCompanyNameByID(companyID)
+		if err != nil {
+			http.Error(w, `{"message": "Error fetching company name"}`, http.StatusInternalServerError)
+			return
+		}
+
+		// Fetch career site links
+		var careerLinks []string
+		for _, csid := range careerSiteIDs {
+			link, err := getCareerSiteLinkByID(int(csid))
+			if err != nil {
+				http.Error(w, `{"message": "Error fetching career site link"}`, http.StatusInternalServerError)
+				return
+			}
+			careerLinks = append(careerLinks, link)
+		}
+
+		// Fetch role names
+		var roleNames []string
+		for _, rid := range roleIDs {
+			roleName, err := getRoleNameByID(int(rid))
+			if err != nil {
+				http.Error(w, `{"message": "Error fetching role name"}`, http.StatusInternalServerError)
+				return
+			}
+			roleNames = append(roleNames, roleName)
+		}
+
+		// Create a subscription response object
+		subResp := SubscriptionResponse{
+			CompanyName:  companyName,
+			CareerLinks:  careerLinks,
+			RoleNames:    roleNames,
+		}
+		subscriptions = append(subscriptions, subResp)
+	}
+
+	if err := rows.Err(); err != nil {
+		http.Error(w, `{"message": "Error iterating subscription rows"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the subscriptions JSON array
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "success",
+		"subscriptions": subscriptions,
+	})
+}
+
+// Helper: getCompanyNameByID fetches company name from companies table.
+func getCompanyNameByID(companyID int) (string, error) {
+	var name string
+	err := db.DB.QueryRow("SELECT name FROM companies WHERE id=$1", companyID).Scan(&name)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+// Helper: getCareerSiteLinkByID fetches career site link from career_sites table.
+func getCareerSiteLinkByID(careerSiteID int) (string, error) {
+	var link string
+	err := db.DB.QueryRow("SELECT link FROM career_sites WHERE id=$1", careerSiteID).Scan(&link)
+	if err != nil {
+		return "", err
+	}
+	return link, nil
+}
+
+// Helper: getRoleNameByID fetches role name from roles table.
+func getRoleNameByID(roleID int) (string, error) {
+	var roleName string
+	err := db.DB.QueryRow("SELECT name FROM roles WHERE id=$1", roleID).Scan(&roleName)
+	if err != nil {
+		return "", err
+	}
+	return roleName, nil
+}

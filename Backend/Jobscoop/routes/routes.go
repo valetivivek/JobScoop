@@ -2,6 +2,7 @@ package routes
 
 import (
 	user "JobScoop/internal/handlers"
+	subscription "JobScoop/internal/handlers"
 	"JobScoop/internal/middleware"
 	"net/http"
 
@@ -25,6 +26,18 @@ func RegisterRoutes() *mux.Router {
 
 	router.HandleFunc("/reset-password", user.ResetPasswordHandler).Methods(http.MethodPut)
 	router.HandleFunc("/reset-password", user.ResetPasswordHandler).Methods(http.MethodOptions)
+
+	router.HandleFunc("/save-subscriptions", subscription.SaveSubscriptionsHandler).Methods(http.MethodPost)
+	router.HandleFunc("/save-subscriptions", subscription.SaveSubscriptionsHandler).Methods(http.MethodOptions)
+
+	router.HandleFunc("/fetch-subscriptions", subscription.FetchSubscriptionsHandler).Methods(http.MethodGet)
+	router.HandleFunc("/fetch-subscriptions", subscription.FetchSubscriptionsHandler).Methods(http.MethodOptions)
+
+	router.HandleFunc("/update-subscriptions", subscription.UpdateSubscriptionsHandler).Methods(http.MethodPut)
+	router.HandleFunc("/update-subscriptions", subscription.UpdateSubscriptionsHandler).Methods(http.MethodOptions)
+
+	router.HandleFunc("/delete-subscriptions", subscription.DeleteSubscriptionsHandler).Methods(http.MethodDelete)
+	router.HandleFunc("/delete-subscriptions", subscription.DeleteSubscriptionsHandler).Methods(http.MethodOptions)
 
 	return router
 }

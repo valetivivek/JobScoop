@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -174,74 +175,169 @@ func TestFetchUserSubscriptionsHandler(t *testing.T) {
 
 }
 
-
 func TestUpdateSubscriptionsHandler(t *testing.T) {
-    // Create a mock DB
-    mockDB, mock, err := sqlmock.New()
-    if err != nil {
-        t.Fatalf("error initializing mock db: %v", err)
-    }
-    defer mockDB.Close()
-    db.DB = mockDB
+	// Create a mock DB
+	mockDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("error initializing mock db: %v", err)
+	}
+	defer mockDB.Close()
+	db.DB = mockDB
 
-    getUserIDByEmailFunc = mockGetUserIDByEmail
-    getCompanyIDIfExistsFunc = mockGetCompanyIDIfExists
-    getOrCreateCareerSiteIDFunc = mockGetOrCreateCareerSiteID
-    getOrCreateRoleIDFunc = mockGetOrCreateRoleID
+	getUserIDByEmailFunc = mockGetUserIDByEmail
+	getCompanyIDIfExistsFunc = mockGetCompanyIDIfExists
+	getOrCreateCareerSiteIDFunc = mockGetOrCreateCareerSiteID
+	getOrCreateRoleIDFunc = mockGetOrCreateRoleID
 
-    // Define request payload
-    reqBody := UpdateSubscriptionsRequest{
-        Email: "test@example.com",
-        Subscriptions: []struct {
-            CompanyName string   `json:"companyName"`
-            CareerLinks []string `json:"careerLinks,omitempty"`
-            RoleNames   []string `json:"roleNames,omitempty"`
-        }{
-            {
-                CompanyName: "TestCompany",
-                CareerLinks: []string{"https://example.com/careers"},
-                RoleNames:   []string{"Software Engineer"},
-            },
-        },
-    }
-    body, _ := json.Marshal(reqBody)
+	// Define request payload
+	reqBody := UpdateSubscriptionsRequest{
+		Email: "test@example.com",
+		Subscriptions: []struct {
+			CompanyName string   `json:"companyName"`
+			CareerLinks []string `json:"careerLinks,omitempty"`
+			RoleNames   []string `json:"roleNames,omitempty"`
+		}{
+			{
+				CompanyName: "TestCompany",
+				CareerLinks: []string{"https://example.com/careers"},
+				RoleNames:   []string{"Software Engineer"},
+			},
+		},
+	}
+	body, _ := json.Marshal(reqBody)
 
-    mock.ExpectQuery("SELECT id FROM subscriptions WHERE user_id=\\$1 AND company_id=\\$2").
-        WithArgs(1, 1).
-        WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+	mock.ExpectQuery("SELECT id FROM subscriptions WHERE user_id=\\$1 AND company_id=\\$2").
+		WithArgs(1, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 
-    mock.ExpectExec("UPDATE subscriptions").
-        WithArgs(pq.Array([]int64{1}), pq.Array([]int64{1}), sqlmock.AnyArg(), 1, 1).
-        WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("UPDATE subscriptions").
+		WithArgs(pq.Array([]int64{1}), pq.Array([]int64{1}), sqlmock.AnyArg(), 1, 1).
+		WillReturnResult(sqlmock.NewResult(1, 1))
 
-    // Create request
-    req := httptest.NewRequest(http.MethodPost, "/update-subscriptions", bytes.NewReader(body))
-    req.Header.Set("Content-Type", "application/json")
-    w := httptest.NewRecorder()
+	// Create request
+	req := httptest.NewRequest(http.MethodPost, "/update-subscriptions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
 
-    // Call handler
-    UpdateSubscriptionsHandler(w, req)
+	// Call handler
+	UpdateSubscriptionsHandler(w, req)
 
-    // Validate response
-    res := w.Result()
-    defer res.Body.Close()
+	// Validate response
+	res := w.Result()
+	defer res.Body.Close()
 
-    if res.StatusCode != http.StatusOK {
-        t.Errorf("expected status OK; got %v", res.StatusCode)
-    }
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("expected status OK; got %v", res.StatusCode)
+	}
 
-    var respBody map[string]interface{}
-    if err := json.NewDecoder(res.Body).Decode(&respBody); err != nil {
-        t.Fatalf("error decoding response: %v", err)
-    }
+	var respBody map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&respBody); err != nil {
+		t.Fatalf("error decoding response: %v", err)
+	}
 
-    if respBody["status"] != "success" {
-        t.Errorf("expected success status; got %v", respBody["status"])
-    }
+	if respBody["status"] != "success" {
+		t.Errorf("expected success status; got %v", respBody["status"])
+	}
 
-    // Ensure expectations were met
-    if err := mock.ExpectationsWereMet(); err != nil {
-        t.Errorf("unmet expectations: %v", err)
-        t.Logf("Actual Response: %v", respBody)
-    }
+	// Ensure expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+		t.Logf("Actual Response: %v", respBody)
+	}
+}
+
+func TestDeleteSubscriptionsHandler(t *testing.T) {
+	// Create a mock database
+	mockDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("Failed to create mock database: %v", err)
+	}
+	defer mockDB.Close()
+
+	db.DB = mockDB // Assign mockDB to the actual DB variable
+	getUserIDByEmailFunc = mockGetUserIDByEmail
+	getCompanyIDIfExistsFunc = mockGetCompanyIDIfExists
+	tests := []struct {
+		name           string
+		requestBody    map[string]interface{}
+		expectDBCalls  bool
+		mockDBResponse func()
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name: "Valid request - subscription deleted",
+			requestBody: map[string]interface{}{
+				"email":         "test@example.com",
+				"subscriptions": []string{"TestCompany"},
+			},
+			expectDBCalls: true,
+			mockDBResponse: func() {
+				mock.ExpectExec("DELETE FROM subscriptions").
+					WithArgs(1, 1).
+					WillReturnResult(sqlmock.NewResult(0, 1)) // 1 row affected
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"message":"Deleted subscription(s) successfully","status":"success"}`,
+		},
+		{
+			name: "Invalid request - missing email",
+			requestBody: map[string]interface{}{
+				"subscriptions": []string{"TestCompany"},
+			},
+			expectDBCalls:  false,
+			mockDBResponse: nil,
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   `{"message": "Email is required"}`,
+		},
+		{
+			name: "Invalid request - user not found",
+			requestBody: map[string]interface{}{
+				"email":         "unknown@example.com",
+				"subscriptions": []string{"TestCompany"},
+			},
+			expectDBCalls:  false,
+			mockDBResponse: nil,
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   `{"message": "User not found"}`,
+		},
+		{
+			name: "Invalid request - no subscriptions provided",
+			requestBody: map[string]interface{}{
+				"email":         "test@example.com",
+				"subscriptions": []string{},
+			},
+			expectDBCalls:  false,
+			mockDBResponse: nil,
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   `{"message": "No subscriptions provided to delete"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.expectDBCalls && tt.mockDBResponse != nil {
+				tt.mockDBResponse()
+			}
+
+			reqBody, _ := json.Marshal(tt.requestBody)
+			req := httptest.NewRequest("POST", "/delete-subscriptions", bytes.NewBuffer(reqBody))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			DeleteSubscriptionsHandler(w, req)
+
+			res := w.Result()
+			defer res.Body.Close()
+
+			if res.StatusCode != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, res.StatusCode)
+			}
+
+			actualBody := strings.TrimSpace(w.Body.String())
+			if actualBody != tt.expectedBody {
+				t.Errorf("Expected response body %s, got %s", tt.expectedBody, actualBody)
+			}
+		})
+	}
 }

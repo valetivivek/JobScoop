@@ -117,3 +117,59 @@ func TestSaveSubscriptionsHandler(t *testing.T) {
 	// Ensure all expectations were met
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestFetchUserSubscriptionsHandler(t *testing.T) {
+	// Initialize mock database
+	mockDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("error initializing mock db: %v", err)
+	}
+	defer mockDB.Close()
+
+	// Replace the db instance with mock
+	db.DB = mockDB
+
+	// Set mock function variables
+	getCompanyNameByIDFunc = mockGetCompanyNameByID
+	getCareerSiteLinkByIDFunc = mockGetCareerSiteLinkByID
+	getRoleNameByIDFunc = mockGetRoleNameByID
+	getUserIDByEmailFunc = mockGetUserIDByEmail
+
+	// Mock SQL query for subscriptions
+	rows := sqlmock.NewRows([]string{"id", "company_id", "career_site_ids", "role_ids"}).
+		AddRow(1, 1, "{1,2}", "{1,2}")
+
+	mock.ExpectQuery(`SELECT id, company_id, career_site_ids, role_ids FROM subscriptions WHERE user_id=\$1`).
+		WithArgs(1).
+		WillReturnRows(rows)
+
+	// Prepare test request
+	reqBody, _ := json.Marshal(map[string]string{"email": "test@example.com"})
+	req := httptest.NewRequest(http.MethodPost, "/subscriptions", bytes.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Capture response
+	respRecorder := httptest.NewRecorder()
+	FetchUserSubscriptionsHandler(respRecorder, req)
+
+	// Validate response
+	if status := respRecorder.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response map[string]interface{}
+	err = json.Unmarshal(respRecorder.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatalf("error decoding response JSON: %v", err)
+	}
+
+	if response["status"] != "success" {
+		t.Errorf("unexpected response status: got %v want %v", response["status"], "success")
+	}
+
+	if _, exists := response["subscriptions"]; !exists {
+		t.Errorf("Response missing subscriptions field")
+		t.Logf("Actual Response: %s", respRecorder.Body.String())
+	}
+
+}

@@ -173,3 +173,75 @@ func TestFetchUserSubscriptionsHandler(t *testing.T) {
 	}
 
 }
+
+
+func TestUpdateSubscriptionsHandler(t *testing.T) {
+    // Create a mock DB
+    mockDB, mock, err := sqlmock.New()
+    if err != nil {
+        t.Fatalf("error initializing mock db: %v", err)
+    }
+    defer mockDB.Close()
+    db.DB = mockDB
+
+    getUserIDByEmailFunc = mockGetUserIDByEmail
+    getCompanyIDIfExistsFunc = mockGetCompanyIDIfExists
+    getOrCreateCareerSiteIDFunc = mockGetOrCreateCareerSiteID
+    getOrCreateRoleIDFunc = mockGetOrCreateRoleID
+
+    // Define request payload
+    reqBody := UpdateSubscriptionsRequest{
+        Email: "test@example.com",
+        Subscriptions: []struct {
+            CompanyName string   `json:"companyName"`
+            CareerLinks []string `json:"careerLinks,omitempty"`
+            RoleNames   []string `json:"roleNames,omitempty"`
+        }{
+            {
+                CompanyName: "TestCompany",
+                CareerLinks: []string{"https://example.com/careers"},
+                RoleNames:   []string{"Software Engineer"},
+            },
+        },
+    }
+    body, _ := json.Marshal(reqBody)
+
+    mock.ExpectQuery("SELECT id FROM subscriptions WHERE user_id=\\$1 AND company_id=\\$2").
+        WithArgs(1, 1).
+        WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+
+    mock.ExpectExec("UPDATE subscriptions").
+        WithArgs(pq.Array([]int64{1}), pq.Array([]int64{1}), sqlmock.AnyArg(), 1, 1).
+        WillReturnResult(sqlmock.NewResult(1, 1))
+
+    // Create request
+    req := httptest.NewRequest(http.MethodPost, "/update-subscriptions", bytes.NewReader(body))
+    req.Header.Set("Content-Type", "application/json")
+    w := httptest.NewRecorder()
+
+    // Call handler
+    UpdateSubscriptionsHandler(w, req)
+
+    // Validate response
+    res := w.Result()
+    defer res.Body.Close()
+
+    if res.StatusCode != http.StatusOK {
+        t.Errorf("expected status OK; got %v", res.StatusCode)
+    }
+
+    var respBody map[string]interface{}
+    if err := json.NewDecoder(res.Body).Decode(&respBody); err != nil {
+        t.Fatalf("error decoding response: %v", err)
+    }
+
+    if respBody["status"] != "success" {
+        t.Errorf("expected success status; got %v", respBody["status"])
+    }
+
+    // Ensure expectations were met
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Errorf("unmet expectations: %v", err)
+        t.Logf("Actual Response: %v", respBody)
+    }
+}

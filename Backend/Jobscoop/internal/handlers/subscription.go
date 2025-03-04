@@ -21,6 +21,17 @@ type SubscriptionRequest struct {
 	} `json:"subscriptions"`
 }
 
+var (
+	getUserIDByEmailFunc        = getUserIDByEmail
+	getOrCreateCompanyIDFunc    = getOrCreateCompanyID
+	getOrCreateCareerSiteIDFunc = getOrCreateCareerSiteID
+	getOrCreateRoleIDFunc       = getOrCreateRoleID
+	getCompanyNameByIDFunc      = getCompanyNameByID
+	getCareerSiteLinkByIDFunc   = getCareerSiteLinkByID
+	getRoleNameByIDFunc         = getRoleNameByID
+	getCompanyIDIfExistsFunc    = getCompanyIDIfExists
+)
+
 // SubscriptionHandler processes the subscription request
 func SaveSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 	var req SubscriptionRequest
@@ -39,7 +50,7 @@ func SaveSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch the user ID based on email
-	userID, err := getUserIDByEmail(req.Email)
+	userID, err := getUserIDByEmailFunc(req.Email)
 	if err != nil {
 		http.Error(w, `{"message": "User not found. Please sign up."}`, http.StatusNotFound)
 		return
@@ -48,7 +59,7 @@ func SaveSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 	// Process each subscription entry
 	for _, sub := range req.Subscriptions {
 		// Get or create company and its ID
-		companyID, err := getOrCreateCompanyID(sub.CompanyName)
+		companyID, err := getOrCreateCompanyIDFunc(sub.CompanyName)
 		if err != nil {
 			http.Error(w, `{"message": "Error processing company"}`, http.StatusInternalServerError)
 			return
@@ -57,7 +68,7 @@ func SaveSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		// Process new career site links
 		var newCareerSiteIDs []int
 		for _, link := range sub.CareerLinks {
-			careerSiteID, err := getOrCreateCareerSiteID(link, companyID)
+			careerSiteID, err := getOrCreateCareerSiteIDFunc(link, companyID)
 			if err != nil {
 				http.Error(w, `{"message": "Error processing career site"}`, http.StatusInternalServerError)
 				return
@@ -68,7 +79,7 @@ func SaveSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		// Process new role names
 		var newRoleIDs []int
 		for _, roleName := range sub.RoleNames {
-			roleID, err := getOrCreateRoleID(roleName)
+			roleID, err := getOrCreateRoleIDFunc(roleName)
 			if err != nil {
 				http.Error(w, `{"message": "Error processing role"}`, http.StatusInternalServerError)
 				return
@@ -190,7 +201,7 @@ func getOrCreateCareerSiteID(url string, companyID int) (int, error) {
 	var careerSiteID int
 	err := db.DB.QueryRow("SELECT id FROM career_sites WHERE link = $1", url).Scan(&careerSiteID)
 	if err == sql.ErrNoRows {
-		err = db.DB.QueryRow("INSERT INTO career_sites (company_id,link) VALUES ($1,$2) RETURNING id", companyID,url).Scan(&careerSiteID)
+		err = db.DB.QueryRow("INSERT INTO career_sites (company_id,link) VALUES ($1,$2) RETURNING id", companyID, url).Scan(&careerSiteID)
 		if err != nil {
 			return 0, err
 		}
@@ -241,7 +252,7 @@ func FetchUserSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from email
-	userID, err := getUserIDByEmail(req.Email)
+	userID, err := getUserIDByEmailFunc(req.Email)
 	if err != nil {
 		http.Error(w, `{"message": "User not found"}`, http.StatusNotFound)
 		return
@@ -274,7 +285,7 @@ func FetchUserSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get the company name
-		companyName, err := getCompanyNameByID(companyID)
+		companyName, err := getCompanyNameByIDFunc(companyID)
 		if err != nil {
 			http.Error(w, `{"message": "Error fetching company name"}`, http.StatusInternalServerError)
 			return
@@ -283,7 +294,7 @@ func FetchUserSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		// Fetch career site links
 		var careerLinks []string
 		for _, csid := range careerSiteIDs {
-			link, err := getCareerSiteLinkByID(int(csid))
+			link, err := getCareerSiteLinkByIDFunc(int(csid))
 			if err != nil {
 				http.Error(w, `{"message": "Error fetching career site link"}`, http.StatusInternalServerError)
 				return
@@ -294,7 +305,7 @@ func FetchUserSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		// Fetch role names
 		var roleNames []string
 		for _, rid := range roleIDs {
-			roleName, err := getRoleNameByID(int(rid))
+			roleName, err := getRoleNameByIDFunc(int(rid))
 			if err != nil {
 				http.Error(w, `{"message": "Error fetching role name"}`, http.StatusInternalServerError)
 				return
@@ -381,7 +392,7 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the user ID for the given email.
-	userID, err := getUserIDByEmail(req.Email)
+	userID, err := getUserIDByEmailFunc(req.Email)
 	if err != nil {
 		http.Error(w, `{"message": "User not found. Please sign up."}`, http.StatusNotFound)
 		return
@@ -396,7 +407,7 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get company ID without auto-creation.
-		companyID, err := getCompanyIDIfExists(sub.CompanyName)
+		companyID, err := getCompanyIDIfExistsFunc(sub.CompanyName)
 		if err != nil {
 			http.Error(w, fmt.Sprintf(`{"message": "Company '%s' does not exist"}`, sub.CompanyName), http.StatusBadRequest)
 			return
@@ -405,7 +416,12 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		// Check if a subscription record exists for this user and company.
 		var subID int
 		query := "SELECT id FROM subscriptions WHERE user_id=$1 AND company_id=$2"
-		err = db.DB.QueryRow(query, userID, companyID).Scan(&subID)
+		// err = db.DB.QueryRow(query, userID, companyID).Scan(&subID)
+		row := db.DB.QueryRow(query, userID, companyID)
+		err = row.Scan(&subID)
+		if err != nil {
+			fmt.Printf("Error scanning row: %v\n", err)
+		}
 		if err == sql.ErrNoRows {
 			http.Error(w, fmt.Sprintf(`{"message": "Subscription for the company %s does not exist"}`, sub.CompanyName), http.StatusBadRequest)
 			return
@@ -429,7 +445,7 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		if updateCareerLinks {
 			for _, link := range sub.CareerLinks {
 				// Using getOrCreate here; if desired you can implement a non-creating variant.
-				careerSiteID, err := getOrCreateCareerSiteID(link, companyID)
+				careerSiteID, err := getOrCreateCareerSiteIDFunc(link, companyID)
 				if err != nil {
 					http.Error(w, `{"message": "Error processing career site link"}`, http.StatusInternalServerError)
 					return
@@ -442,7 +458,7 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		if updateRoleNames {
 			for _, roleName := range sub.RoleNames {
 				// Using getOrCreate here; adjust as needed.
-				roleID, err := getOrCreateRoleID(roleName)
+				roleID, err := getOrCreateRoleIDFunc(roleName)
 				if err != nil {
 					http.Error(w, `{"message": "Error processing role name"}`, http.StatusInternalServerError)
 					return
@@ -508,85 +524,84 @@ func getCompanyIDIfExists(companyName string) (int, error) {
 	return companyID, nil
 }
 
-
 // DeleteSubscriptionsRequest represents the expected payload.
 type DeleteSubscriptionsRequest struct {
-    Email         string   `json:"email"`
-    Subscriptions []string `json:"subscriptions"`
+	Email         string   `json:"email"`
+	Subscriptions []string `json:"subscriptions"`
 }
 
 // DeleteSubscriptionsHandler deletes subscriptions for the given email and companies.
 func DeleteSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
-    var req DeleteSubscriptionsRequest
+	var req DeleteSubscriptionsRequest
 
-    // Decode the request body.
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        http.Error(w, `{"message": "Invalid request payload"}`, http.StatusBadRequest)
-        return
-    }
+	// Decode the request body.
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"message": "Invalid request payload"}`, http.StatusBadRequest)
+		return
+	}
 
-    // Validate that an email is provided.
-    if req.Email == "" {
-        http.Error(w, `{"message": "Email is required"}`, http.StatusBadRequest)
-        return
-    }
+	// Validate that an email is provided.
+	if req.Email == "" {
+		http.Error(w, `{"message": "Email is required"}`, http.StatusBadRequest)
+		return
+	}
 
-    // Validate that there is at least one subscription to delete.
-    if len(req.Subscriptions) == 0 {
-        http.Error(w, `{"message": "No subscriptions provided to delete"}`, http.StatusBadRequest)
-        return
-    }
+	// Validate that there is at least one subscription to delete.
+	if len(req.Subscriptions) == 0 {
+		http.Error(w, `{"message": "No subscriptions provided to delete"}`, http.StatusBadRequest)
+		return
+	}
 
-    // Get the user ID corresponding to the email.
-    userID, err := getUserIDByEmail(req.Email)
-    if err != nil {
-        http.Error(w, `{"message": "User not found"}`, http.StatusNotFound)
-        return
-    }
+	// Get the user ID corresponding to the email.
+	userID, err := getUserIDByEmailFunc(req.Email)
+	if err != nil {
+		http.Error(w, `{"message": "User not found"}`, http.StatusNotFound)
+		return
+	}
 
-    foundSubscription := false
-    userSubscriptions := false
+	foundSubscription := false
+	userSubscriptions := false
 
-    // Loop through each subscription (company name) in the payload.
-    for _, companyName := range req.Subscriptions {
-        // Get the company ID corresponding to the company name.
-        companyID, err := getCompanyIDIfExists(companyName)
-        if err != nil {
-            // If the company doesn't exist, skip it.
-            continue
-        }
-        foundSubscription = true
+	// Loop through each subscription (company name) in the payload.
+	for _, companyName := range req.Subscriptions {
+		// Get the company ID corresponding to the company name.
+		companyID, err := getCompanyIDIfExistsFunc(companyName)
+		if err != nil {
+			// If the company doesn't exist, skip it.
+			continue
+		}
+		foundSubscription = true
 
-        // Delete the subscription row where user_id and company_id match.
-        res, err := db.DB.Exec("DELETE FROM subscriptions WHERE user_id=$1 AND company_id=$2", userID, companyID)
-        if err != nil {
-            http.Error(w, `{"message": "Database error while deleting subscription"}`, http.StatusInternalServerError)
-            return
-        }
-        count, err := res.RowsAffected()
-        if err == nil && count > 0 {
-            userSubscriptions = true
-        }
-    }
+		// Delete the subscription row where user_id and company_id match.
+		res, err := db.DB.Exec("DELETE FROM subscriptions WHERE user_id=$1 AND company_id=$2", userID, companyID)
+		if err != nil {
+			http.Error(w, `{"message": "Database error while deleting subscription"}`, http.StatusInternalServerError)
+			return
+		}
+		count, err := res.RowsAffected()
+		if err == nil && count > 0 {
+			userSubscriptions = true
+		}
+	}
 
-    // If none of the given company names existed in the companies table.
-    if !foundSubscription {
-        http.Error(w, `{"message": "None of the given subscriptions exist"}`, http.StatusBadRequest)
-        return
-    }
+	// If none of the given company names existed in the companies table.
+	if !foundSubscription {
+		http.Error(w, `{"message": "None of the given subscriptions exist"}`, http.StatusBadRequest)
+		return
+	}
 
-    if !userSubscriptions {
-        http.Error(w, `{"message": "User is not subscribed to any of given subscriptions"}`, http.StatusBadRequest)
-        return
-    }
+	if !userSubscriptions {
+		http.Error(w, `{"message": "User is not subscribed to any of given subscriptions"}`, http.StatusBadRequest)
+		return
+	}
 
-    // Respond with a success message.
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusOK)
-    json.NewEncoder(w).Encode(map[string]interface{}{
-        "message": "Deleted subscription(s) successfully",
-        "status":  "success",
-    })
+	// Respond with a success message.
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Deleted subscription(s) successfully",
+		"status":  "success",
+	})
 }
 
 // FetchAllSubscriptionsResponse represents the JSON structure of the response.

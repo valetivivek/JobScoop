@@ -96,7 +96,7 @@ These tests verify individual component behavior:
   - Includes tests to ensure error snackbars can be dismissed.
 
 #### B. Cypress End-to-End Tests
-**Total Cypress testcases : 20**
+**Total Cypress testcases : 25**
 
 These tests validate full user flows:
 

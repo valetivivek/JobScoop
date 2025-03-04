@@ -1,0 +1,100 @@
+.textfield-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 350px;
+  position: relative;
+  margin: 3px;
+}
+
+.textfield-label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #555;
+  margin-bottom: 5px;
+  font-family: "Roboto", sans-serif;
+}
+
+.textfield-input {
+  font-size: 16px;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+  font-family: "Roboto", sans-serif;
+}
+
+.textfield-input:focus {
+  border-color: #1976d2;
+  box-shadow: 0 0 5px rgba(25, 118, 210, 0.3);
+}
+
+.multi-select {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 100%;
+  min-height: 45px;
+}
+
+.multi-input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 16px;
+  width: 100%;
+}
+
+.tag {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 5px 8px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.remove-tag {
+  cursor: pointer;
+  font-weight: bold;
+  margin-left: 5px;
+}
+
+.button-group{
+  margin-top: 35px;
+  margin-left: 15px;
+}
+
+.error {
+  border: 2px solid rgb(207, 35, 35);
+  /* background-color: #ffe6e6; */
+}
+
+.submit-button{
+  background: rgb(79, 209, 79);
+}
+
+.delete-icon{
+color: red;
+}
+
+.delete-icon :disabled{
+color: grey;
+}
+.box-design{
+  margin-top: 3;
+  display: flex;
+  justify-content: center;
+}
+
+.main-container{
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}

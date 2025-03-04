@@ -24,7 +24,6 @@
 13. Integrate the frontend with the backend subscription APIs.
 14. Implement state management for subscriptions (using Redux or Context API).
 
-
 ## Completed Issues
 1. **Save Subscription API** implemented on the backend. (Completed)
 2. **Save Subscription functionality** implemented on the frontend. (Completed)
@@ -49,13 +48,9 @@
 ### User Unit Tests
 
 - **TestSignupHandler**: Tests the functionality of `SignupHandler` to ensure user registration works correctly.
-
 - **TestLoginHandler**: Tests the functionality of `LoginHandler` to ensure secure and accurate user authentication.
-
 - **TestForgotPasswordHandler**: Tests the functionality of `ForgotPasswordHandler` to ensure password reset requests are processed correctly.
-
 - **TestVerifyCodeHandler**: Tests the functionality of `VerifyCodeHandler` to ensure that the code verification process works correctly.
-
 - **TestResetPasswordHandler**: Tests the functionality of `ResetPasswordHandler` to ensure users can securely reset their passwords.
 
 ### Subscription Unit Tests
@@ -66,10 +61,68 @@
 - **TestDeleteSubscriptionsHandler**: Tests that `DeleteSubscriptionsHandler` properly deletes subscriptions based on the provided company names.
 - **TestFetchAllSubscriptionsHandler**: Tests that `FetchAllSubscriptionsHandler` fetches all companies with their career links and roles, returning the correct structure.
 
-
 ### Frontend Unit Tests
 
-### Backend API Documentation
+This section includes the end-to-end tests written in Cypress to validate the core functionalities of the web application. The tests are organized into four main suites:
+
+#### 1. Login Tests  
+**File:** logintest.cy.js citeturn0file0  
+- **Purpose:** Verify the login process, including form field validations, successful authentication, error handling, and logout functionality.  
+- **Key Tests:**
+  - **Unit Tests:** Check that the email and password input fields exist, are visible, and have the correct attributes. Also, ensure the login button is initially disabled.
+  - **Integration Tests:** 
+    - Simulate a successful login by mocking the API response (returning a token) and verifying navigation to the home page.
+    - Validate error messages when incorrect credentials are provided.
+    - Ensure form validations work properly (e.g., required fields, prevention of multiple submissions).
+    - Simulate logout by clicking the logout icon and checking that the user is redirected back to the login page.
+
+#### 2. Password Reset Tests  
+**File:** passreset.cy.js citeturn0file1  
+- **Purpose:** Ensure that the multi-step password reset flow functions correctly.  
+- **Key Tests:**
+  - Verify that the password reset form renders correctly with its stepper (Email, Verify Code, Reset Password).
+  - Check that valid emails enable the "Next" button and that invalid formats trigger error messages.
+  - Test the progression from email submission to verification code entry, including handling invalid codes.
+  - Validate the password reset step, including password matching and adherence to complexity requirements.
+  - Confirm that a successful password reset redirects the user back to the login page.
+
+#### 3. Signup Tests  
+**File:** signuptest.cy.js citeturn0file2  
+- **Purpose:** Validate the signup process, ensuring proper input validations and user feedback.  
+- **Key Tests:**
+  - Confirm that all necessary signup form fields (name, email, password, confirm password) are rendered and validated.
+  - Ensure the signup button remains disabled until valid inputs are provided.
+  - Test various password requirements (e.g., presence of uppercase, lowercase, numbers, and special characters) and error handling for password mismatches.
+  - Simulate a successful signup with mocked API responses and verify redirection to the login page.
+  - Check for appropriate error messages when signup fails and validate tooltips for password requirements.
+
+#### 4. Subscription Tests  
+**File:** subscriptiontest.cy.js citeturn0file3  
+- **Purpose:** Test the subscription management features including adding, modifying, and deleting subscriptions.  
+- **Key Tests:**
+  - Start with a login process to access the subscriptions page.
+  - **Adding Subscriptions:** Fill in details (company name, career links, and job roles) and verify successful saving.
+  - **Modifying Subscriptions:** Update existing subscription data (e.g., company name changes and adding new roles) and ensure changes are saved.
+  - **Deleting Subscriptions:** Test deletion of subscriptions and verify confirmation messages.
+  - Validate that the subscription form enforces required field validations and displays appropriate error messages.
+
+**Running the Tests**
+
+To execute these tests, ensure you have Cypress installed. You can run the tests in interactive mode:
+
+```bash
+npx cypress open
+```
+
+Or run them headlessly with:
+
+```bash
+npx cypress run
+```
+
+---
+
+## Backend API Documentation
 
 # Signup API 
 
@@ -176,7 +229,6 @@ The payload must include the user's email and password:
     -   Returned if the provided password is incorrect.
 -   **500 Internal Server Error:**
     -   Returned if there is a database error or an issue generating/signing the JWT token.
-
 
 # ForgotPassword API 
 
@@ -372,8 +424,6 @@ The JSON payload must include the user's email and the new password:
 -   **500 Internal Server Error:**
     -   Database or processing errors.
 
-
-
 # FetchUserSubscriptions API 
 
 ## Endpoint
@@ -504,7 +554,6 @@ The JSON payload should follow this structure:
 -   **500 Internal Server Error:**
     -   Returned if there is a database error while fetching or updating the subscription.
 
-
 # DeleteSubscriptions API 
 
 ## Endpoint
@@ -560,7 +609,6 @@ The request payload should follow this structure:
     -   When the user corresponding to the provided email is not found.
 -   **500 Internal Server Error:**
     -   In case of any database errors during the deletion process.
-
 
 # FetchAllSubscriptions API 
 

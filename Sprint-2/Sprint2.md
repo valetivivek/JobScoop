@@ -65,8 +65,7 @@
 
 This section includes the end-to-end tests written in Cypress to validate the core functionalities of the web application. The tests are organized into four main suites:
 
-#### 1. Login Tests  
-**File:** logintest.cy.js citeturn0file0  
+#### 1. Login Tests   
 - **Purpose:** Verify the login process, including form field validations, successful authentication, error handling, and logout functionality.  
 - **Key Tests:**
   - **Unit Tests:** Check that the email and password input fields exist, are visible, and have the correct attributes. Also, ensure the login button is initially disabled.
@@ -77,7 +76,6 @@ This section includes the end-to-end tests written in Cypress to validate the co
     - Simulate logout by clicking the logout icon and checking that the user is redirected back to the login page.
 
 #### 2. Password Reset Tests  
-**File:** passreset.cy.js citeturn0file1  
 - **Purpose:** Ensure that the multi-step password reset flow functions correctly.  
 - **Key Tests:**
   - Verify that the password reset form renders correctly with its stepper (Email, Verify Code, Reset Password).
@@ -86,8 +84,7 @@ This section includes the end-to-end tests written in Cypress to validate the co
   - Validate the password reset step, including password matching and adherence to complexity requirements.
   - Confirm that a successful password reset redirects the user back to the login page.
 
-#### 3. Signup Tests  
-**File:** signuptest.cy.js citeturn0file2  
+#### 3. Signup Tests   
 - **Purpose:** Validate the signup process, ensuring proper input validations and user feedback.  
 - **Key Tests:**
   - Confirm that all necessary signup form fields (name, email, password, confirm password) are rendered and validated.
@@ -97,7 +94,6 @@ This section includes the end-to-end tests written in Cypress to validate the co
   - Check for appropriate error messages when signup fails and validate tooltips for password requirements.
 
 #### 4. Subscription Tests  
-**File:** subscriptiontest.cy.js citeturn0file3  
 - **Purpose:** Test the subscription management features including adding, modifying, and deleting subscriptions.  
 - **Key Tests:**
   - Start with a login process to access the subscriptions page.

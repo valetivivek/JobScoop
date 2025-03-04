@@ -71,6 +71,13 @@ function Login() {
         setDisabled(username === "" || password === "" || !emailRegex.test(username));
     }, [username, password]);
 
+    useEffect(() => {
+        if (localStorage.getItem('user')) {
+          // If already logged in, redirect them away from the login page
+          navigate('/home'); 
+        }
+      }, []);
+
     return (
         <div className="bg-image  d-flex justify-content-center  align-items-center vh-100 bg-secondary p-4">
             {/* Main Card */}

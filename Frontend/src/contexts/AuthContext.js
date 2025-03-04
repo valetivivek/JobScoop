@@ -37,6 +37,19 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const isloggedIn = () => {
+
+    const storedToken = localStorage.getItem("token");
+
+    if(user && storedToken && !isTokenExpired(storedToken) )
+    {
+      return true
+    }
+    else{
+      return false
+    }
+  };
+
   // Check for stored token on load
   useEffect(() => {
     console.log("check auth")
@@ -54,7 +67,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isloggedIn }}>
       {children}
     </AuthContext.Provider>
   );

@@ -388,7 +388,6 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		hashedPassword, request.Email,
 	)
 	if err != nil {
-		fmt.Println("Error updating password:", err)
 		http.Error(w, "Failed to update password", http.StatusInternalServerError)
 		return
 	}

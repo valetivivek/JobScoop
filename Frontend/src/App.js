@@ -2,17 +2,18 @@ import logo from './logo.svg';
 import './App.css';
 import './App.css'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import Login from './login/login';
-import SignUp from './login/signup';
+import React, { useState, useEffect, useContext } from 'react';
+import { AuthContext } from './contexts/AuthContext';
 import router from './Routes/routes';
-import { AuthProvider } from './contexts/AuthContext';
+
 
 
 function App() {
+    const { user } = useContext(AuthContext);
+  
   return (
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <RouterProvider router={router}>
+    </RouterProvider>
   );
 }
 

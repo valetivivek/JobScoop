@@ -1,4 +1,4 @@
-/* body {
+body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -10,5 +10,24 @@
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
-} */
-@import "tailwindcss";
+}
+.nav-inactive {
+  text-decoration: none; 
+  color: black;
+  padding: 10px;
+  font-size: 20px;
+  transition: color 0.3s ease;
+}
+
+.nav-active-link {
+  color: black;
+  font-weight: bold;
+  border-bottom: 3px solid #e2e5eb; 
+  text-decoration: none;
+  transition: color 0.3s ease; 
+}
+.nav-inactive:hover
+{
+  color: #e2e5eb;
+  font-weight: bold; 
+}

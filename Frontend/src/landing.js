@@ -8,27 +8,15 @@ import { IconButton } from "@mui/material";
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import './landing.css'
+import Header from './headers/header';
 
 
 function Landing() {
     const { logout } = useContext(AuthContext);
-    const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
     return (
         <div className=' container-fluid p-0 overflow-hidden '>
-            <div className='container-fluid p-0  overflow-hidden' style={{ background: '#909692' }}>
-                <div className="row">
-                    <div className='col-6'>
-                        <h1 style={{ paddingLeft: '15px', marginLeft: '15px' }}>JOBSCOOP</h1>
-                    </div>
-                    <div className='col-6 align-items-center' style={{ direction: 'rtl', paddingRight: '25px' }}>
-                        <IconButton color="error" style={{ padding: '0px', marginTop: '12px' }} onClick={logout}>
-                            <LogoutIcon />
-                        </IconButton>
-                    </div>
-                </div>
 
-            </div>
             <div className='row ' style={{ margin: "20px" }}>
 
                 <div className='row '>

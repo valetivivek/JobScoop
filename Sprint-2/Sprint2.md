@@ -67,6 +67,8 @@ This section includes both the React component unit tests and the Cypress end-to
 
 #### A. React Component Unit Tests
 
+**Total Unit testcases : 20**
+
 These tests verify individual component behavior:
 
 - **Signup Component Tests:**  
@@ -94,6 +96,7 @@ These tests verify individual component behavior:
   - Includes tests to ensure error snackbars can be dismissed.
 
 #### B. Cypress End-to-End Tests
+**Total Cypress testcases : 20**
 
 These tests validate full user flows:
 

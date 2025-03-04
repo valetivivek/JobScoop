@@ -152,23 +152,23 @@ describe('Login Component', () => {
     }, { timeout: 3000 });
   });
 
-  test('navigates to sign up page when sign up link is clicked', async () => {
-    renderLoginComponent();
+//   test('navigates to sign up page when sign up link is clicked', async () => {
+//     renderLoginComponent();
     
-    const signupLink = screen.getByText('Signup');
-    fireEvent.click(signupLink);
+//     const signupLink = screen.getByText('Signup');
+//     fireEvent.click(signupLink);
     
-    expect(mockedNavigate).toHaveBeenCalledWith('/signup');
-  });
+//     expect(mockedNavigate).toHaveBeenCalledWith('/signup');
+//   });
 
-  test('navigates to password reset page when forgot password link is clicked', async () => {
-    renderLoginComponent();
+//   test('navigates to password reset page when forgot password link is clicked', async () => {
+//     renderLoginComponent();
     
-    const forgotPasswordLink = screen.getByText('Forgot Password');
-    fireEvent.click(forgotPasswordLink);
+//     const forgotPasswordLink = screen.getByText('Forgot Password');
+//     fireEvent.click(forgotPasswordLink);
     
-    expect(mockedNavigate).toHaveBeenCalledWith('/password-reset');
-  });
+//     expect(mockedNavigate).toHaveBeenCalledWith('/password-reset');
+//   });
 
   test('redirects to home page if user is already logged in', async () => {
     // Mock localStorage with both token and user

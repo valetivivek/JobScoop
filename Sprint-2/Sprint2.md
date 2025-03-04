@@ -63,48 +63,52 @@
 
 ### Frontend Unit Tests
 
-This section includes the end-to-end tests written in Cypress to validate the core functionalities of the web application. The tests are organized into four main suites:
+This section includes both the React component unit tests and the Cypress end-to-end tests for the web application.
 
-#### 1. Login Tests   
-- **Purpose:** Verify the login process, including form field validations, successful authentication, error handling, and logout functionality.  
-- **Key Tests:**
-  - **Unit Tests:** Check that the email and password input fields exist, are visible, and have the correct attributes. Also, ensure the login button is initially disabled.
-  - **Integration Tests:** 
-    - Simulate a successful login by mocking the API response (returning a token) and verifying navigation to the home page.
-    - Validate error messages when incorrect credentials are provided.
-    - Ensure form validations work properly (e.g., required fields, prevention of multiple submissions).
-    - Simulate logout by clicking the logout icon and checking that the user is redirected back to the login page.
+#### A. React Component Unit Tests
 
-#### 2. Password Reset Tests  
-- **Purpose:** Ensure that the multi-step password reset flow functions correctly.  
-- **Key Tests:**
-  - Verify that the password reset form renders correctly with its stepper (Email, Verify Code, Reset Password).
-  - Check that valid emails enable the "Next" button and that invalid formats trigger error messages.
-  - Test the progression from email submission to verification code entry, including handling invalid codes.
-  - Validate the password reset step, including password matching and adherence to complexity requirements.
-  - Confirm that a successful password reset redirects the user back to the login page.
+These tests verify individual component behavior:
 
-#### 3. Signup Tests   
-- **Purpose:** Validate the signup process, ensuring proper input validations and user feedback.  
-- **Key Tests:**
-  - Confirm that all necessary signup form fields (name, email, password, confirm password) are rendered and validated.
-  - Ensure the signup button remains disabled until valid inputs are provided.
-  - Test various password requirements (e.g., presence of uppercase, lowercase, numbers, and special characters) and error handling for password mismatches.
-  - Simulate a successful signup with mocked API responses and verify redirection to the login page.
-  - Check for appropriate error messages when signup fails and validate tooltips for password requirements.
+- **Signup Component Tests:**  
+  - Renders form elements (Name, Email, Password, Confirm Password) and displays the JOBSCOOP title.  
+  - Initially disables the Signup button until valid inputs are provided.  
+  - Validates email format and displays an error for invalid input.  
+  - Shows a tooltip for password requirements on focus.  
+  - Checks for password mismatch (clearing password fields and displaying an error if passwords do not match).  
+  - Enables the Signup button with valid inputs; on successful API response, shows a success alert and navigates to the login page, while on failure, displays an error alert and clears passwords.  
+  - Also validates various password criteria (uppercase, lowercase, numeric, and special character).
 
-#### 4. Subscription Tests  
-- **Purpose:** Test the subscription management features including adding, modifying, and deleting subscriptions.  
-- **Key Tests:**
-  - Start with a login process to access the subscriptions page.
-  - **Adding Subscriptions:** Fill in details (company name, career links, and job roles) and verify successful saving.
-  - **Modifying Subscriptions:** Update existing subscription data (e.g., company name changes and adding new roles) and ensure changes are saved.
-  - **Deleting Subscriptions:** Test deletion of subscriptions and verify confirmation messages.
-  - Validate that the subscription form enforces required field validations and displays appropriate error messages.
+- **Password Reset Component Tests:**  
+  - Renders the reset form with a stepper indicating "Enter Email," "Verify Code," and "Reset Password" steps.  
+  - Validates email input (disabling/enabling the Next button based on format) and handles API responses for email submission.  
+  - Transitions to the verification step upon successful email submission; displays errors and clears input on failure.  
+  - Validates the verification code length and button state, then moves to the password reset fields upon successful code verification; otherwise, shows an error alert.  
+  - Validates new password requirements ensuring both password fields match; a successful reset triggers the API call and redirects to the login page, while a failure displays an error.
+
+- **Login Component Tests:**  
+  - Renders the login form with Email, Password fields, and navigation links for Signup and Password Reset.  
+  - Initially disables the Login button until valid credentials are entered.  
+  - Validates the email format (displaying an error for invalid input).  
+  - On successful login, calls the login function, sets local storage, and navigates to Home; on failure, displays an error alert and clears the inputs.  
+  - Also verifies that clicking on Signup or Forgot Password navigates to the corresponding pages and that an already logged-in user is redirected to Home.  
+  - Includes tests to ensure error snackbars can be dismissed.
+
+#### B. Cypress End-to-End Tests
+
+These tests validate full user flows:
+
+- **Login Tests:**  
+  - Verify form field validations, successful login with a mocked API response (token retrieval), error handling for incorrect credentials, and logout functionality.
+- **Password Reset Tests:**  
+  - Ensure the multi-step password reset flow functions correctly—from email submission to code verification and final password reset—handling errors at each step.
+- **Signup Tests:**  
+  - Validate that the signup process includes proper input validations and user feedback, with navigation to the login page on success.
+- **Subscription Tests:**  
+  - Test the subscription management features (adding, modifying, and deleting subscriptions) following a login, with all API calls appropriately intercepted and validated.
 
 **Running the Tests**
 
-To execute these tests, ensure you have Cypress installed. You can run the tests in interactive mode:
+To execute the Cypress tests, ensure you have Cypress installed. You can run the tests in interactive mode:
 
 ```bash
 npx cypress open
@@ -139,20 +143,20 @@ The payload should include the user's name, email, and password:
 
 ## Functionality
 
--   **Input Validation:**
-    -   Ensures that `name`, `email`, and `password` are provided.
--   **User Existence Check:**
-    -   Checks if a user with the given email already exists.
-    -   Returns a conflict error if the user exists.
--   **Password Hashing:**
-    -   Hashes the provided password using bcrypt.
--   **User Creation:**
-    -   Inserts the new user into the database with the hashed password.
--   **JWT Generation:**
-    -   Retrieves the newly created user's ID.
-    -   Generates a JWT token with an expiration time (1 hour) and includes the user ID in the claims.
--   **Response Construction:**
-    -   Returns a 201 Created status with a JSON object containing a success message, the JWT token, and the user ID.
+- **Input Validation:**  
+  - Ensures that `name`, `email`, and `password` are provided.
+- **User Existence Check:**  
+  - Checks if a user with the given email already exists.  
+  - Returns a conflict error if the user exists.
+- **Password Hashing:**  
+  - Hashes the provided password using bcrypt.
+- **User Creation:**  
+  - Inserts the new user into the database with the hashed password.
+- **JWT Generation:**  
+  - Retrieves the newly created user's ID.  
+  - Generates a JWT token with an expiration time (1 hour) and includes the user ID in the claims.
+- **Response Construction:**  
+  - Returns a 201 Created status with a JSON object containing a success message, the JWT token, and the user ID.
 
 ## Response
 
@@ -164,14 +168,15 @@ The payload should include the user's name, email, and password:
   "userid": 123
 }
 ```
+
 ### Error Responses
 
--   **400 Bad Request:**
-    -   When the payload is invalid or missing required fields.
--   **409 Conflict:**
-    -   When a user with the given email already exists.
--   **500 Internal Server Error:**
-    -   For database errors, password hashing failures, or JWT signing issues.
+- **400 Bad Request:**  
+  - When the payload is invalid or missing required fields.
+- **409 Conflict:**  
+  - When a user with the given email already exists.
+- **500 Internal Server Error:**  
+  - For database errors, password hashing failures, or JWT signing issues.
 
 # Login API 
 
@@ -191,19 +196,17 @@ The payload must include the user's email and password:
 
 ## Functionality
 
--   **Input Validation:**
-    -   Decodes the JSON payload.
-    -   Verifies that both `email` and `password` are provided.
--   **User Authentication:**
-    -   Looks up the user in the database by email.
-    -   Returns a 404 error if the user does not exist.
-    -   Retrieves the stored hashed password and compares it with the provided password.
-    -   Returns an unauthorized error if the password does not match.
--   **JWT Generation:**
-    -   On successful authentication, generates a JWT token with an expiration time (1 hour).
-    -   The token includes the user ID in its claims.
--   **Response Construction:**
-    -   Returns a JSON response containing a success message, the generated JWT token, and the user ID.
+- **Input Validation:**  
+  - Decodes the JSON payload and verifies that both `email` and `password` are provided.
+- **User Authentication:**  
+  - Looks up the user in the database by email.  
+  - Returns a 404 error if the user does not exist.  
+  - Retrieves the stored hashed password and compares it with the provided password.  
+  - Returns an unauthorized error if the password does not match.
+- **JWT Generation:**  
+  - On successful authentication, generates a JWT token with an expiration time (1 hour) that includes the user ID in its claims.
+- **Response Construction:**  
+  - Returns a JSON response containing a success message, the generated JWT token, and the user ID.
 
 ## Response
 
@@ -215,16 +218,17 @@ The payload must include the user's email and password:
   "userid": 123
 }
 ```
+
 ### Error Responses
 
--   **400 Bad Request:**
-    -   Returned if the JSON payload is invalid or if email/password is missing.
--   **404 Not Found:**
-    -   Returned if the user does not exist.
--   **401 Unauthorized:**
-    -   Returned if the provided password is incorrect.
--   **500 Internal Server Error:**
-    -   Returned if there is a database error or an issue generating/signing the JWT token.
+- **400 Bad Request:**  
+  - Returned if the JSON payload is invalid or if email/password is missing.
+- **404 Not Found:**  
+  - Returned if the user does not exist.
+- **401 Unauthorized:**  
+  - Returned if the provided password is incorrect.
+- **500 Internal Server Error:**  
+  - Returned if there is a database error or an issue generating/signing the JWT token.
 
 # ForgotPassword API 
 
@@ -240,36 +244,37 @@ The JSON payload should contain the user's email:
   "email": "user@example.com"
 }
 ```
+
 ## Functionality
 
-1.  **Input Validation:**
-    -   Decodes the request payload and checks that an email is provided.
-2.  **User Verification:**
-    -   Checks if the provided email exists in the `users` table.
-    -   If the email is not found, returns a 404 error prompting the user to sign up.
-3.  **Token Generation and Storage:**
-    -   Generates a reset token and sets its expiration to 15 minutes from the current UTC time.
-    -   Inserts or updates the reset token record in the `reset_tokens` table.
-4.  **Email Sending:**
-    -   Sends a password reset email containing the token to the user.
-5.  **Response Construction:**
-    -   Returns a success message if the email is sent successfully.
+1. **Input Validation:**  
+   - Decodes the request payload and checks that an email is provided.
+2. **User Verification:**  
+   - Checks if the provided email exists in the `users` table.  
+   - If the email is not found, returns a 404 error prompting the user to sign up.
+3. **Token Generation and Storage:**  
+   - Generates a reset token and sets its expiration to 15 minutes from the current UTC time.  
+   - Inserts or updates the reset token record in the `reset_tokens` table.
+4. **Email Sending:**  
+   - Sends a password reset email containing the token to the user.
+5. **Response Construction:**  
+   - Returns a success message if the email is sent successfully.
 
 ## Response
 
 ### Success Response
 
--   **Status Code:** 200 OK
--   **Response Body:** Password reset email sent successfully!
+- **Status Code:** 200 OK  
+- **Response Body:** Password reset email sent successfully!
 
 ### Error Responses
 
--   **400 Bad Request:**
-    -   Returned if the JSON payload is invalid.
--   **404 Not Found:**
-    -   Returned if the email does not exist in the users table.
--   **500 Internal Server Error:**
-    -   Returned if there is a database error, token generation/storage error, or if sending the email fails.
+- **400 Bad Request:**  
+  - Returned if the JSON payload is invalid.
+- **404 Not Found:**  
+  - Returned if the email does not exist in the users table.
+- **500 Internal Server Error:**  
+  - Returned if there is a database error, token generation/storage error, or if sending the email fails.
 
 # VerifyCode API
 
@@ -286,37 +291,37 @@ The JSON payload must include the user's email and the reset token:
   "token": "reset_token_here"
 }
 ```
+
 ## Functionality
 
-1.  **Input Validation:**
-    -   Decodes the request payload.
-    -   Ensures that both `email` and `token` are provided.
-2.  **Token Retrieval:**
-    -   Fetches the stored token and its expiration time from the `reset_tokens` table for the given email.
-    -   Returns a 404 error if no reset request is found.
-3.  **Token Verification:**
-    -   Checks if the token has expired and returns an unauthorized error if it has.
-    -   Compares the stored token with the provided token. Returns an unauthorized error if they do not match.
-4.  **Response Construction:**
-    -   On successful verification, returns a success message.
+1. **Input Validation:**  
+   - Decodes the request payload and ensures that both `email` and `token` are provided.
+2. **Token Retrieval:**  
+   - Fetches the stored token and its expiration time from the `reset_tokens` table for the given email.  
+   - Returns a 404 error if no reset request is found.
+3. **Token Verification:**  
+   - Checks if the token has expired and returns an unauthorized error if it has.  
+   - Compares the stored token with the provided token and returns an unauthorized error if they do not match.
+4. **Response Construction:**  
+   - On successful verification, returns a success message.
 
 ## Response
 
 ### Success Response
 
--   **Status Code:** 200 OK
--   **Response Body:** Verification successful
+- **Status Code:** 200 OK  
+- **Response Body:** Verification successful
 
 ### Error Responses
 
--   **400 Bad Request:**
-    -   When the payload is invalid or missing required fields.
--   **404 Not Found:**
-    -   When no reset request is found for the provided email.
--   **401 Unauthorized:**
-    -   When the token has expired or does not match.
--   **500 Internal Server Error:**
-    -   For any database-related errors.
+- **400 Bad Request:**  
+  - When the payload is invalid or missing required fields.
+- **404 Not Found:**  
+  - When no reset request is found for the provided email.
+- **401 Unauthorized:**  
+  - When the token has expired or does not match.
+- **500 Internal Server Error:**  
+  - For any database-related errors.
 
 # ResetPassword API 
 
@@ -333,36 +338,36 @@ The JSON payload must include the user's email and the new password:
   "new_password": "newSecurePassword"
 }
 ```
+
 ## Functionality
 
-1.  **Input Validation:**
-    -   Decodes the request payload.
-    -   Checks that both `email` and `new_password` are provided.
-2.  **User Verification:**
-    -   Queries the `users` table to ensure that a user with the given email exists.
-    -   Returns a 404 error if the user is not found.
-3.  **Password Hashing:**
-    -   Hashes the new password using bcrypt.
-4.  **Password Update:**
-    -   Updates the user's password in the database with the hashed password.
-5.  **Response Construction:**
-    -   Returns a success message upon successful password update.
+1. **Input Validation:**  
+   - Decodes the request payload and checks that both `email` and `new_password` are provided.
+2. **User Verification:**  
+   - Queries the `users` table to ensure that a user with the given email exists.  
+   - Returns a 404 error if the user is not found.
+3. **Password Hashing:**  
+   - Hashes the new password using bcrypt.
+4. **Password Update:**  
+   - Updates the user's password in the database with the hashed password.
+5. **Response Construction:**  
+   - Returns a success message upon successful password update.
 
 ## Response
 
 ### Success Response
 
--   **Status Code:** 200 OK
--   **Response Body:** Password reset successfully
+- **Status Code:** 200 OK  
+- **Response Body:** Password reset successfully
 
 ### Error Responses
 
--   **400 Bad Request:**
-    -   When the JSON payload is invalid or missing required fields.
--   **404 Not Found:**
-    -   When no user is found with the provided email.
--   **500 Internal Server Error:**
-    -   For database errors, password hashing failures, or issues updating the password.
+- **400 Bad Request:**  
+  - When the JSON payload is invalid or missing required fields.
+- **404 Not Found:**  
+  - When no user is found with the provided email.
+- **500 Internal Server Error:**  
+  - For database errors, password hashing failures, or issues updating the password.
 
 # SaveSubscriptions API 
 
@@ -387,20 +392,20 @@ The JSON payload must include the user's email and the new password:
 
 ## Functionality
 
--   **Input Validation:**
-    -   Ensures `email` and each subscription’s `companyName` are provided.
--   **User Lookup:**
-    -   Fetches the user ID by email. Returns a 404 error if the user is not found.
--   **Subscription Processing:**
-    -   For each subscription:
-        -   Retrieves or creates the company record.
-        -   Retrieves or creates career site IDs from `careerLinks` (using the company ID).
-        -   Retrieves or creates role IDs from `roleNames`.
-        -   Checks if a subscription (user ID + company ID) exists:
-            -   **If not:** Inserts a new subscription record.
-            -   **If yes:** Merges new career links and role IDs with the existing ones and updates the record.
--   **Timestamps:**
-    -   Sets the `interest_time` to the current UTC time.
+- **Input Validation:**  
+  - Ensures `email` and each subscription’s `companyName` are provided.
+- **User Lookup:**  
+  - Fetches the user ID by email and returns a 404 error if the user is not found.
+- **Subscription Processing:**  
+  - For each subscription:  
+    - Retrieves or creates the company record.  
+    - Retrieves or creates career site IDs from `careerLinks` (using the company ID).  
+    - Retrieves or creates role IDs from `roleNames`.  
+    - Checks if a subscription (user ID + company ID) exists:  
+      - **If not:** Inserts a new subscription record.  
+      - **If yes:** Merges new career links and role IDs with the existing ones and updates the record.
+- **Timestamps:**  
+  - Sets the `interest_time` to the current UTC time.
 
 ## Response
 
@@ -411,14 +416,15 @@ The JSON payload must include the user's email and the new password:
   "status": "success"
 }
 ```
+
 ### Errors
 
--   **400 Bad Request:**
-    -   Invalid JSON payload or missing required fields.
--   **404 Not Found:**
-    -   User not found.
--   **500 Internal Server Error:**
-    -   Database or processing errors.
+- **400 Bad Request:**  
+  - Invalid JSON payload or missing required fields.
+- **404 Not Found:**  
+  - User not found.
+- **500 Internal Server Error:**  
+  - Database or processing errors.
 
 # FetchUserSubscriptions API 
 
@@ -428,29 +434,24 @@ The JSON payload must include the user's email and the new password:
 - **Content-Type:** `application/json`
 
 ## Request Body
-The request should include the user's email:
 ```json
 {
   "email": "user@example.com"
 }
 ```
+
 ## Functionality
 
-1.  **Input Validation:**
-    -   Decodes the JSON payload and checks that an email is provided.
-2.  **User Lookup:**
-    -   Retrieves the user ID based on the provided email.
-    -   Returns a 404 error if the user is not found.
-3.  **Subscription Query:**
-    -   Fetches all subscription rows for the user from the database.
-4.  **Data Aggregation:**
-    -   For each subscription, retrieves:
-        -   The company name (using the company ID).
-        -   All career site links associated with the subscription.
-        -   All role names associated with the subscription.
-5.  **Response Construction:**
-    -   Returns a JSON object containing a list of subscriptions.
-    -   Each subscription includes `companyName`, `careerLinks`, and `roleNames`.
+1. **Input Validation:**  
+   - Decodes the JSON payload and checks that an email is provided.
+2. **User Lookup:**  
+   - Retrieves the user ID based on the provided email and returns a 404 error if the user is not found.
+3. **Subscription Query:**  
+   - Fetches all subscription rows for the user from the database.
+4. **Data Aggregation:**  
+   - For each subscription, retrieves the company name, associated career site links, and role names.
+5. **Response Construction:**  
+   - Returns a JSON object containing a list of subscriptions, each with `companyName`, `careerLinks`, and `roleNames`.
 
 ## Response
 
@@ -482,14 +483,15 @@ The request should include the user's email:
   ]
 }
 ```
+
 ### Error Responses
 
--   **400 Bad Request:**
-    -   Returned if the JSON payload is invalid or if the `email` field is missing.
--   **404 Not Found:**
-    -   Returned if the user associated with the provided email is not found.
--   **500 Internal Server Error:**
-    -   Returned if there is an error fetching subscriptions or processing database records.
+- **400 Bad Request:**  
+  - Returned if the JSON payload is invalid or if the `email` field is missing.
+- **404 Not Found:**  
+  - Returned if the user associated with the provided email is not found.
+- **500 Internal Server Error:**  
+  - Returned if there is an error fetching subscriptions or processing database records.
 
 # UpdateSubscriptions API 
 
@@ -499,8 +501,6 @@ The request should include the user's email:
 - **Content-Type:** `application/json`
 
 ## Request Body
-The JSON payload should follow this structure:
-
 ```json
 {
   "email": "user@example.com",
@@ -516,21 +516,14 @@ The JSON payload should follow this structure:
 
 ## Functionality
 
--   **Input Validation:**
-    -   Ensures an `email` is provided.
-    -   Checks that each subscription entry contains a `companyName`.
--   **User & Company Verification:**
-    -   Retrieves the user ID by email.
-    -   Looks up the company ID for the given `companyName` without auto-creating a new company.
-    -   Returns an error if the company does not exist or if no subscription record exists for the user and company.
--   **Update Logic:**
-    -   Determines which fields (careerLinks and/or roleNames) are provided.
-    -   If no update fields are provided, returns an error.
-    -   For provided `careerLinks`, retrieves (or creates) career site IDs associated with the company.
-    -   For provided `roleNames`, retrieves (or creates) role IDs.
-    -   Converts the ID slices to the appropriate type for PostgreSQL array storage.
-    -   Executes an UPDATE query to modify the subscription record (merging new IDs with existing ones if necessary) and updates the `interest_time`.
-
+- **Input Validation:**  
+  - Ensures an `email` is provided and each subscription contains a `companyName`.
+- **User & Company Verification:**  
+  - Retrieves the user ID by email and looks up the company ID for the given `companyName`, returning an error if not found.
+- **Update Logic:**  
+  - Determines which fields (careerLinks and/or roleNames) are provided and, if none, returns an error.  
+  - For provided fields, retrieves or creates corresponding IDs and updates the subscription record (merging with existing data) while updating the `interest_time`.
+  
 ## Response
 
 ### Success Response
@@ -543,12 +536,12 @@ The JSON payload should follow this structure:
 
 ### Error Responses
 
--   **400 Bad Request:**
-    -   Returned if the payload is invalid, missing `email`, missing `companyName` in any subscription, or if no update fields are provided.
--   **404 Not Found:**
-    -   Returned if the user is not found.
--   **500 Internal Server Error:**
-    -   Returned if there is a database error while fetching or updating the subscription.
+- **400 Bad Request:**  
+  - Returned if the payload is invalid, missing `email`, or missing `companyName` in any subscription, or if no update fields are provided.
+- **404 Not Found:**  
+  - Returned if the user is not found.
+- **500 Internal Server Error:**  
+  - Returned if there is a database error while fetching or updating the subscription.
 
 # DeleteSubscriptions API 
 
@@ -558,33 +551,25 @@ The JSON payload should follow this structure:
 - **Content-Type:** `application/json`
 
 ## Request Body
-The request payload should follow this structure:
 ```json
 {
   "email": "user@example.com",
   "subscriptions": ["Amazon", "Meta"]
 }
 ```
+
 ## Functionality
 
-1.  **Input Validation:**
-    -   Verifies that an `email` is provided.
-    -   Ensures that the `subscriptions` array is not empty.
-2.  **User Lookup:**
-    -   Retrieves the user ID associated with the provided email.
-    -   Returns a 404 error if the user is not found.
-3.  **Subscription Deletion:**
-    -   Iterates over the list of company names provided in the `subscriptions` array.
-    -   For each company name:
-        -   Attempts to retrieve the corresponding company ID.
-        -   If the company does not exist, that subscription is skipped.
-        -   Deletes the subscription record where both the user ID and company ID match.
-    -   Checks whether any valid subscription was found and deleted.
-4.  **Error Handling:**
-    -   If none of the provided company names exist in the database, returns an error.
-    -   If the user is not subscribed to any of the provided subscriptions, returns an error.
-5.  **Response Construction:**
-    -   On successful deletion of one or more subscriptions, returns a success message.
+1. **Input Validation:**  
+   - Verifies that an `email` is provided and that the `subscriptions` array is not empty.
+2. **User Lookup:**  
+   - Retrieves the user ID associated with the provided email, returning a 404 error if not found.
+3. **Subscription Deletion:**  
+   - Iterates over the company names in the `subscriptions` array, deleting each corresponding subscription record where the user ID and company ID match.
+4. **Error Handling:**  
+   - Returns an error if none of the provided subscriptions exist or if the user is not subscribed to any.
+5. **Response Construction:**  
+   - Returns a success message upon successful deletion.
 
 ## Response
 
@@ -598,13 +583,12 @@ The request payload should follow this structure:
 
 ### Error Responses
 
--   **400 Bad Request:**
-    -   When the payload is invalid, missing an email, or the subscriptions array is empty.
-    -   When none of the provided subscriptions exist, or the user is not subscribed to any of them.
--   **404 Not Found:**
-    -   When the user corresponding to the provided email is not found.
--   **500 Internal Server Error:**
-    -   In case of any database errors during the deletion process.
+- **400 Bad Request:**  
+  - When the payload is invalid, missing an email, or the subscriptions array is empty, or if no valid subscriptions are found.
+- **404 Not Found:**  
+  - When the user corresponding to the provided email is not found.
+- **500 Internal Server Error:**  
+  - In case of any database errors during deletion.
 
 # FetchAllSubscriptions API 
 
@@ -614,21 +598,15 @@ The request payload should follow this structure:
 - **Content-Type:** `application/json`
 
 ## Functionality
+
 1. **Companies Query:**  
-   - Fetches all company IDs and names from the `companies` table.
-   - Builds a map with each company name as a key and initializes an empty list for its career links.
-
+   - Fetches all company IDs and names from the `companies` table, building a map with each company name as a key and initializing an empty list for its career links.
 2. **Career Sites Query:**  
-   - For each company, queries the `career_sites` table to retrieve all associated career links.
-   - Populates the company’s entry in the map with these links.
-
+   - For each company, queries the `career_sites` table to retrieve all associated career links and populates the map.
 3. **Roles Query:**  
    - Fetches all role names from the `roles` table and compiles them into a list.
-
 4. **Response Construction:**  
-   - Constructs a JSON response containing:
-     - A `companies` object mapping company names to arrays of career links.
-     - A `roles` array containing all role names.
+   - Constructs a JSON response containing a `companies` object (mapping company names to arrays of career links) and a `roles` array.
 
 ## Response
 
@@ -642,7 +620,8 @@ The request payload should follow this structure:
   "roles": ["Software Engineer", "Data Scientist"]
 }
 ```
+
 ### Error Responses
 
--   **500 Internal Server Error:**
-    -   Returned if there is an error fetching or scanning companies, career sites, or roles.
+- **500 Internal Server Error:**  
+  - Returned if there is an error fetching or scanning companies, career sites, or roles.

@@ -341,3 +341,74 @@ func TestDeleteSubscriptionsHandler(t *testing.T) {
 		})
 	}
 }
+
+
+func TestFetchAllSubscriptionsHandler(t *testing.T) {
+    mockDB, mock, err := sqlmock.New()
+    if err != nil {
+        t.Fatalf("Failed to create mock database: %v", err)
+    }
+    defer mockDB.Close()
+
+    db.DB = mockDB // Assign mockDB to the actual DB variable
+
+    // Mock companies query
+    mock.ExpectQuery("SELECT id, name FROM companies").
+        WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).
+            AddRow(1, "Company A").
+            AddRow(2, "Company B"))
+
+    // Mock career_sites query
+    mock.ExpectQuery("SELECT link FROM career_sites WHERE company_id = \\$1").
+        WithArgs(1).
+        WillReturnRows(sqlmock.NewRows([]string{"link"}).
+            AddRow("https://companyA.com/careers"))
+
+    mock.ExpectQuery("SELECT link FROM career_sites WHERE company_id = \\$1").
+        WithArgs(2).
+        WillReturnRows(sqlmock.NewRows([]string{"link"}).
+            AddRow("https://companyB.com/careers"))
+
+    // Mock roles query
+    mock.ExpectQuery("SELECT name FROM roles").
+        WillReturnRows(sqlmock.NewRows([]string{"name"}).
+            AddRow("Software Engineer").
+            AddRow("Data Scientist"))
+
+    r := httptest.NewRequest("GET", "/subscriptions", nil)
+    w := httptest.NewRecorder()
+
+    FetchAllSubscriptionsHandler(w, r) // Call handler
+
+    // Assert response
+    resp := w.Result()
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        t.Errorf("expected status 200, got %d", resp.StatusCode)
+    }
+
+    var response FetchAllSubscriptionsResponse
+    if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+        t.Fatalf("failed to decode response: %v", err)
+    }
+
+    // Validate response content
+    expectedCompanies := map[string][]string{
+        "Company A": {"https://companyA.com/careers"},
+        "Company B": {"https://companyB.com/careers"},
+    }
+    if len(response.Companies) != len(expectedCompanies) {
+        t.Errorf("expected %d companies, got %d", len(expectedCompanies), len(response.Companies))
+    }
+
+    expectedRoles := []string{"Software Engineer", "Data Scientist"}
+    if len(response.Roles) != len(expectedRoles) {
+        t.Errorf("expected %d roles, got %d", len(expectedRoles), len(response.Roles))
+    }
+
+    // Ensure all expectations were met
+    if err := mock.ExpectationsWereMet(); err != nil {
+        t.Errorf("unmet expectations: %v", err)
+    }
+}

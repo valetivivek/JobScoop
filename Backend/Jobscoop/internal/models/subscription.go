@@ -14,7 +14,7 @@ func CreateSubscriptionTable() {
 	    Company_Id INT NOT NULL,
 	    Career_site_Ids INT[] NOT NULL,
 	    Role_Ids INT[] NOT NULL,
-	    Disabled BOOLEAN NOT NULL DEFAULT FALSE,
+	    Active BOOLEAN NOT NULL DEFAULT TRUE,
 	    Interest_Time TIMESTAMP,
 
 		CONSTRAINT fk_user FOREIGN KEY (User_Id) REFERENCES Users(Id) ON DELETE CASCADE,

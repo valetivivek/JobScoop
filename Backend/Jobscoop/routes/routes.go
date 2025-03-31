@@ -46,8 +46,8 @@ func RegisterRoutes() *mux.Router {
 	router.HandleFunc("/get-user", user.GetUser).Methods(http.MethodPost)
 	router.HandleFunc("/get-user", user.GetUser).Methods(http.MethodOptions)
 
-	router.HandleFunc("/update-user", user.GetUser).Methods(http.MethodPut)
-	router.HandleFunc("/update-user", user.GetUser).Methods(http.MethodOptions)
+	router.HandleFunc("/update-user", user.UpdateUser).Methods(http.MethodPut)
+	router.HandleFunc("/update-user", user.UpdateUser).Methods(http.MethodOptions)
 
 	router.HandleFunc("/subscriptions/jobs", jobs.GetAllJobs).Methods(http.MethodPost)
 	router.HandleFunc("/subscriptions/jobs", jobs.GetAllJobs).Methods(http.MethodOptions)

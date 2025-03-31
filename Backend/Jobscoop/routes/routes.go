@@ -1,8 +1,9 @@
 package routes
 
 import (
-	user "JobScoop/internal/handlers"
+	jobs "JobScoop/internal/handlers"
 	subscription "JobScoop/internal/handlers"
+	user "JobScoop/internal/handlers"
 	"JobScoop/internal/middleware"
 	"net/http"
 

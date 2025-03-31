@@ -196,7 +196,7 @@ func TestUpdateSubscriptionsHandler(t *testing.T) {
 			CompanyName string   `json:"companyName"`
 			CareerLinks []string `json:"careerLinks,omitempty"`
 			RoleNames   []string `json:"roleNames,omitempty"`
-			Disabled    *bool    `json:"disabled,omitempty"`
+			Active    *bool    `json:"active,omitempty"`
 		}{
 			{
 				CompanyName: "TestCompany",

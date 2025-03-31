@@ -262,7 +262,7 @@ func FetchUserSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.DB.Query(`
 		SELECT id, company_id, career_site_ids, role_ids 
 		FROM subscriptions 
-		WHERE user_id=$1`, userID)
+		WHERE user_id=$1 AND disabled=$2`, userID, false)
 	if err != nil {
 		http.Error(w, `{"message": "Database error fetching subscriptions"}`, http.StatusInternalServerError)
 		return
@@ -372,8 +372,149 @@ type UpdateSubscriptionsRequest struct {
 		CompanyName string   `json:"companyName"`
 		CareerLinks []string `json:"careerLinks,omitempty"`
 		RoleNames   []string `json:"roleNames,omitempty"`
+		Disabled    *bool    `json:"disabled,omitempty"`
 	} `json:"subscriptions"`
 }
+
+// UpdateSubscriptionsHandler updates subscription records based on the provided payload.
+// func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
+// 	var req UpdateSubscriptionsRequest
+
+// 	// Decode the request body.
+// 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+// 		http.Error(w, `{"message": "Invalid request payload"}`, http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	// Validate that an email is provided.
+// 	if req.Email == "" {
+// 		http.Error(w, `{"message": "Email is required"}`, http.StatusBadRequest)
+// 		return
+// 	}
+
+// 	// Get the user ID for the given email.
+// 	userID, err := getUserIDByEmailFunc(req.Email)
+// 	if err != nil {
+// 		http.Error(w, `{"message": "User not found. Please sign up."}`, http.StatusNotFound)
+// 		return
+// 	}
+
+// 	// Process each subscription in the payload.
+// 	for _, sub := range req.Subscriptions {
+// 		// CompanyName is mandatory.
+// 		if sub.CompanyName == "" {
+// 			http.Error(w, `{"message": "CompanyName is required for each subscription"}`, http.StatusBadRequest)
+// 			return
+// 		}
+
+// 		// Get company ID without auto-creation.
+// 		companyID, err := getCompanyIDIfExistsFunc(sub.CompanyName)
+// 		if err != nil {
+// 			http.Error(w, fmt.Sprintf(`{"message": "Company '%s' does not exist"}`, sub.CompanyName), http.StatusBadRequest)
+// 			return
+// 		}
+
+// 		// Check if a subscription record exists for this user and company.
+// 		var subID int
+// 		query := "SELECT id FROM subscriptions WHERE user_id=$1 AND company_id=$2"
+// 		// err = db.DB.QueryRow(query, userID, companyID).Scan(&subID)
+// 		row := db.DB.QueryRow(query, userID, companyID)
+// 		err = row.Scan(&subID)
+// 		if err != nil {
+// 			fmt.Printf("Error scanning row: %v\n", err)
+// 		}
+// 		if err == sql.ErrNoRows {
+// 			http.Error(w, fmt.Sprintf(`{"message": "Subscription for the company %s does not exist"}`, sub.CompanyName), http.StatusBadRequest)
+// 			return
+// 		} else if err != nil {
+// 			http.Error(w, `{"message": "Database error while fetching subscription"}`, http.StatusInternalServerError)
+// 			return
+// 		}
+
+// 		// Flags for which fields to update.
+// 		updateCareerLinks := len(sub.CareerLinks) > 0
+// 		updateRoleNames := len(sub.RoleNames) > 0
+
+// 		// If neither field is provided, no update is done.
+// 		if !updateCareerLinks && !updateRoleNames {
+// 			http.Error(w, `{"message": "No update fields provided"}`, http.StatusBadRequest)
+// 			return
+// 		}
+
+// 		// Prepare new arrays.
+// 		var newCareerSiteIDs []int
+// 		if updateCareerLinks {
+// 			for _, link := range sub.CareerLinks {
+// 				// Using getOrCreate here; if desired you can implement a non-creating variant.
+// 				careerSiteID, err := getOrCreateCareerSiteIDFunc(link, companyID)
+// 				if err != nil {
+// 					http.Error(w, `{"message": "Error processing career site link"}`, http.StatusInternalServerError)
+// 					return
+// 				}
+// 				newCareerSiteIDs = append(newCareerSiteIDs, careerSiteID)
+// 			}
+// 		}
+
+// 		var newRoleIDs []int
+// 		if updateRoleNames {
+// 			for _, roleName := range sub.RoleNames {
+// 				// Using getOrCreate here; adjust as needed.
+// 				roleID, err := getOrCreateRoleIDFunc(roleName)
+// 				if err != nil {
+// 					http.Error(w, `{"message": "Error processing role name"}`, http.StatusInternalServerError)
+// 					return
+// 				}
+// 				newRoleIDs = append(newRoleIDs, roleID)
+// 			}
+// 		}
+
+// 		// Convert newCareerSiteIDs and newRoleIDs from []int to []int64
+// 		newCareerSiteIDs64 := make([]int64, len(newCareerSiteIDs))
+// 		for i, id := range newCareerSiteIDs {
+// 			newCareerSiteIDs64[i] = int64(id)
+// 		}
+// 		newRoleIDs64 := make([]int64, len(newRoleIDs))
+// 		for i, id := range newRoleIDs {
+// 			newRoleIDs64[i] = int64(id)
+// 		}
+
+// 		// Build the UPDATE query based on which fields to update.
+// 		now := time.Now().UTC()
+// 		if updateCareerLinks && updateRoleNames {
+// 			_, err = db.DB.Exec(`
+// 				UPDATE subscriptions 
+// 				SET career_site_ids=$1, role_ids=$2, interest_time=$3 
+// 				WHERE user_id=$4 AND company_id=$5`,
+// 				pq.Array(newCareerSiteIDs64), pq.Array(newRoleIDs64), now, userID, companyID)
+// 		} else if updateCareerLinks {
+// 			_, err = db.DB.Exec(`
+// 				UPDATE subscriptions 
+// 				SET career_site_ids=$1, interest_time=$2 
+// 				WHERE user_id=$3 AND company_id=$4`,
+// 				pq.Array(newCareerSiteIDs64), now, userID, companyID)
+// 		} else if updateRoleNames {
+// 			_, err = db.DB.Exec(`
+// 				UPDATE subscriptions 
+// 				SET role_ids=$1, interest_time=$2 
+// 				WHERE user_id=$3 AND company_id=$4`,
+// 				pq.Array(newRoleIDs64), now, userID, companyID)
+// 		}
+
+// 		if err != nil {
+// 			http.Error(w, `{"message": "Error updating subscription"}`, http.StatusInternalServerError)
+// 			return
+// 		}
+// 	}
+
+// 	// Return a success response.
+// 	w.Header().Set("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusOK)
+// 	json.NewEncoder(w).Encode(map[string]interface{}{
+// 		"message": "Subscription(s) updated successfully",
+// 		"status":  "success",
+// 	})
+// }
+
 
 // UpdateSubscriptionsHandler updates subscription records based on the provided payload.
 func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
@@ -416,12 +557,8 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		// Check if a subscription record exists for this user and company.
 		var subID int
 		query := "SELECT id FROM subscriptions WHERE user_id=$1 AND company_id=$2"
-		// err = db.DB.QueryRow(query, userID, companyID).Scan(&subID)
 		row := db.DB.QueryRow(query, userID, companyID)
 		err = row.Scan(&subID)
-		if err != nil {
-			fmt.Printf("Error scanning row: %v\n", err)
-		}
 		if err == sql.ErrNoRows {
 			http.Error(w, fmt.Sprintf(`{"message": "Subscription for the company %s does not exist"}`, sub.CompanyName), http.StatusBadRequest)
 			return
@@ -433,9 +570,10 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		// Flags for which fields to update.
 		updateCareerLinks := len(sub.CareerLinks) > 0
 		updateRoleNames := len(sub.RoleNames) > 0
+		updateDisabled := sub.Disabled != nil
 
-		// If neither field is provided, no update is done.
-		if !updateCareerLinks && !updateRoleNames {
+		// If no update fields are provided, return error.
+		if !updateCareerLinks && !updateRoleNames && !updateDisabled {
 			http.Error(w, `{"message": "No update fields provided"}`, http.StatusBadRequest)
 			return
 		}
@@ -444,7 +582,6 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		var newCareerSiteIDs []int
 		if updateCareerLinks {
 			for _, link := range sub.CareerLinks {
-				// Using getOrCreate here; if desired you can implement a non-creating variant.
 				careerSiteID, err := getOrCreateCareerSiteIDFunc(link, companyID)
 				if err != nil {
 					http.Error(w, `{"message": "Error processing career site link"}`, http.StatusInternalServerError)
@@ -457,7 +594,6 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		var newRoleIDs []int
 		if updateRoleNames {
 			for _, roleName := range sub.RoleNames {
-				// Using getOrCreate here; adjust as needed.
 				roleID, err := getOrCreateRoleIDFunc(roleName)
 				if err != nil {
 					http.Error(w, `{"message": "Error processing role name"}`, http.StatusInternalServerError)
@@ -467,7 +603,7 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Convert newCareerSiteIDs and newRoleIDs from []int to []int64
+		// Convert newCareerSiteIDs and newRoleIDs from []int to []int64.
 		newCareerSiteIDs64 := make([]int64, len(newCareerSiteIDs))
 		for i, id := range newCareerSiteIDs {
 			newCareerSiteIDs64[i] = int64(id)
@@ -477,29 +613,56 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 			newRoleIDs64[i] = int64(id)
 		}
 
-		// Build the UPDATE query based on which fields to update.
 		now := time.Now().UTC()
-		if updateCareerLinks && updateRoleNames {
-			_, err = db.DB.Exec(`
+
+		// Build and execute the UPDATE query based on which fields to update.
+		var execErr error
+		switch {
+		case updateCareerLinks && updateRoleNames && updateDisabled:
+			_, execErr = db.DB.Exec(`
+				UPDATE subscriptions 
+				SET career_site_ids=$1, role_ids=$2, disabled=$3, interest_time=$4 
+				WHERE user_id=$5 AND company_id=$6`,
+				pq.Array(newCareerSiteIDs64), pq.Array(newRoleIDs64), *sub.Disabled, now, userID, companyID)
+		case updateCareerLinks && updateRoleNames:
+			_, execErr = db.DB.Exec(`
 				UPDATE subscriptions 
 				SET career_site_ids=$1, role_ids=$2, interest_time=$3 
 				WHERE user_id=$4 AND company_id=$5`,
 				pq.Array(newCareerSiteIDs64), pq.Array(newRoleIDs64), now, userID, companyID)
-		} else if updateCareerLinks {
-			_, err = db.DB.Exec(`
+		case updateCareerLinks && updateDisabled:
+			_, execErr = db.DB.Exec(`
+				UPDATE subscriptions 
+				SET career_site_ids=$1, disabled=$2, interest_time=$3 
+				WHERE user_id=$4 AND company_id=$5`,
+				pq.Array(newCareerSiteIDs64), *sub.Disabled, now, userID, companyID)
+		case updateRoleNames && updateDisabled:
+			_, execErr = db.DB.Exec(`
+				UPDATE subscriptions 
+				SET role_ids=$1, disabled=$2, interest_time=$3 
+				WHERE user_id=$4 AND company_id=$5`,
+				pq.Array(newRoleIDs64), *sub.Disabled, now, userID, companyID)
+		case updateCareerLinks:
+			_, execErr = db.DB.Exec(`
 				UPDATE subscriptions 
 				SET career_site_ids=$1, interest_time=$2 
 				WHERE user_id=$3 AND company_id=$4`,
 				pq.Array(newCareerSiteIDs64), now, userID, companyID)
-		} else if updateRoleNames {
-			_, err = db.DB.Exec(`
+		case updateRoleNames:
+			_, execErr = db.DB.Exec(`
 				UPDATE subscriptions 
 				SET role_ids=$1, interest_time=$2 
 				WHERE user_id=$3 AND company_id=$4`,
 				pq.Array(newRoleIDs64), now, userID, companyID)
+		case updateDisabled:
+			_, execErr = db.DB.Exec(`
+				UPDATE subscriptions 
+				SET disabled=$1, interest_time=$2 
+				WHERE user_id=$3 AND company_id=$4`,
+				*sub.Disabled, now, userID, companyID)
 		}
 
-		if err != nil {
+		if execErr != nil {
 			http.Error(w, `{"message": "Error updating subscription"}`, http.StatusInternalServerError)
 			return
 		}

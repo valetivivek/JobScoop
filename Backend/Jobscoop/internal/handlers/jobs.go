@@ -92,14 +92,13 @@ func GetAllJobs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"message": "Error iterating subscription rows"}`, http.StatusInternalServerError)
 		return
 	}
-
-	fmt.Printf("I am here, fetchJobsFunc address: %p\n", fetchJobsFunc)
+	fmt.Println(subscriptions)
 
 	// New functionality: Fetch jobs for each role within each subscription
 	var allJobs []map[string]interface{}
 	for _, sub := range subscriptions {
 		for _, roleName := range sub.RoleNames {
-			fmt.Printf("I am here, fetchJobsFunc address: %p\n", fetchJobsFunc)
+			fmt.Println("I am here going to call fetchjobs")
 			jobs, err := fetchJobsFunc(sub.CompanyName, roleName, w) // Assuming fetchJobs takes company name and role name
 			if err != nil {
 				http.Error(w, `{"message": "Error fetching jobs"}`, http.StatusInternalServerError)
@@ -133,7 +132,7 @@ func fetchLinkedInJobs(apiKey, field, geoid, page, sort_by string) ([]map[string
 	params.Add("sort_by", sort_by)
 	// params.Add("filter_by_company", filter_by_company)
 	url := ScrapingDogLinkedInAPI + "?" + params.Encode()
-	// fmt.Println(url)
+	fmt.Println(url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err

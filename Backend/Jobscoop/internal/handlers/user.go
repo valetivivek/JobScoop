@@ -396,3 +396,56 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Password reset successfully"))
 }
+
+type GetUserRequest struct {
+	Email string `json:"email"`
+}
+
+// GetUserResponse represents the response structure
+type GetUserResponse struct {
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	CreatedAt string `json:"created_at"`
+}
+
+func GetUser(w http.ResponseWriter, r *http.Request) {
+	// Parse the request body
+	var req GetUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"message": "Invalid request payload"}`, http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Validate required fields
+	if req.Email == "" {
+		http.Error(w, `{"message": "Email is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Query the database for the user
+	var user GetUserResponse
+	err := db.DB.QueryRow(
+		`SELECT name, email, created_at FROM users WHERE email = $1`,
+		req.Email,
+	).Scan(&user.Name, &user.Email, &user.CreatedAt)
+
+	if err != nil {
+		// Check if no rows were returned
+		if err.Error() == "sql: no rows in result set" {
+			http.Error(w, `{"message": "User not found"}`, http.StatusNotFound)
+		} else {
+			// Log the actual error for debugging
+			// log.Printf("Database error: %v", err)
+			http.Error(w, `{"message": "Error retrieving user data"}`, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Return the user data
+	json.NewEncoder(w).Encode(user)
+}

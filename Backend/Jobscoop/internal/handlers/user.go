@@ -449,3 +449,44 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	// Return the user data
 	json.NewEncoder(w).Encode(user)
 }
+
+
+// UpdateUserRequest represents the expected JSON payload for updating a user.
+type UpdateUserRequest struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
+// UpdateUser updates the name of a user identified by their email.
+func UpdateUser(w http.ResponseWriter, r *http.Request) {
+	// Parse the request body.
+	var req UpdateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"message": "Invalid request payload"}`, http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Validate required fields.
+	if req.Email == "" || req.Name == "" {
+		http.Error(w, `{"message": "Email and Name are required"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Update the user's name in the database.
+	_, err := db.DB.Exec(`UPDATE users SET name = $1 WHERE email = $2`, req.Name, req.Email)
+	if err != nil {
+		http.Error(w, `{"message": "Error updating user"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Set response headers.
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Return a success message.
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "User updated successfully",
+		"status":  "success",
+	})
+}

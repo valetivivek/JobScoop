@@ -231,6 +231,7 @@ type SubscriptionResponse struct {
 	CompanyName string   `json:"companyName"`
 	CareerLinks []string `json:"careerLinks"`
 	RoleNames   []string `json:"roleNames"`
+	Active      bool     `json:"active"`
 }
 
 // Request struct to get email
@@ -260,9 +261,9 @@ func FetchUserSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Query subscriptions for the user
 	rows, err := db.DB.Query(`
-		SELECT id, company_id, career_site_ids, role_ids 
+		SELECT id, company_id, career_site_ids, role_ids, active
 		FROM subscriptions 
-		WHERE user_id=$1 AND disabled=$2`, userID, false)
+		WHERE user_id=$1`, userID)
 	if err != nil {
 		http.Error(w, `{"message": "Database error fetching subscriptions"}`, http.StatusInternalServerError)
 		return
@@ -278,8 +279,9 @@ func FetchUserSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		var companyID int
 		var careerSiteIDs []int64
 		var roleIDs []int64
+		var active bool
 
-		if err := rows.Scan(&id, &companyID, pq.Array(&careerSiteIDs), pq.Array(&roleIDs)); err != nil {
+		if err := rows.Scan(&id, &companyID, pq.Array(&careerSiteIDs), pq.Array(&roleIDs), &active); err != nil {
 			http.Error(w, `{"message": "Error scanning subscription row"}`, http.StatusInternalServerError)
 			return
 		}
@@ -318,6 +320,8 @@ func FetchUserSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 			CompanyName: companyName,
 			CareerLinks: careerLinks,
 			RoleNames:   roleNames,
+			Active: active,
+
 		}
 		subscriptions = append(subscriptions, subResp)
 	}
@@ -372,7 +376,7 @@ type UpdateSubscriptionsRequest struct {
 		CompanyName string   `json:"companyName"`
 		CareerLinks []string `json:"careerLinks,omitempty"`
 		RoleNames   []string `json:"roleNames,omitempty"`
-		Disabled    *bool    `json:"disabled,omitempty"`
+		Active    *bool    `json:"active,omitempty"`
 	} `json:"subscriptions"`
 }
 
@@ -570,10 +574,10 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		// Flags for which fields to update.
 		updateCareerLinks := len(sub.CareerLinks) > 0
 		updateRoleNames := len(sub.RoleNames) > 0
-		updateDisabled := sub.Disabled != nil
+		updateActive := sub.Active != nil
 
 		// If no update fields are provided, return error.
-		if !updateCareerLinks && !updateRoleNames && !updateDisabled {
+		if !updateCareerLinks && !updateRoleNames && !updateActive {
 			http.Error(w, `{"message": "No update fields provided"}`, http.StatusBadRequest)
 			return
 		}
@@ -618,30 +622,30 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 		// Build and execute the UPDATE query based on which fields to update.
 		var execErr error
 		switch {
-		case updateCareerLinks && updateRoleNames && updateDisabled:
+		case updateCareerLinks && updateRoleNames && updateActive:
 			_, execErr = db.DB.Exec(`
 				UPDATE subscriptions 
-				SET career_site_ids=$1, role_ids=$2, disabled=$3, interest_time=$4 
+				SET career_site_ids=$1, role_ids=$2, active=$3, interest_time=$4 
 				WHERE user_id=$5 AND company_id=$6`,
-				pq.Array(newCareerSiteIDs64), pq.Array(newRoleIDs64), *sub.Disabled, now, userID, companyID)
+				pq.Array(newCareerSiteIDs64), pq.Array(newRoleIDs64), *sub.Active, now, userID, companyID)
 		case updateCareerLinks && updateRoleNames:
 			_, execErr = db.DB.Exec(`
 				UPDATE subscriptions 
 				SET career_site_ids=$1, role_ids=$2, interest_time=$3 
 				WHERE user_id=$4 AND company_id=$5`,
 				pq.Array(newCareerSiteIDs64), pq.Array(newRoleIDs64), now, userID, companyID)
-		case updateCareerLinks && updateDisabled:
+		case updateCareerLinks && updateActive:
 			_, execErr = db.DB.Exec(`
 				UPDATE subscriptions 
-				SET career_site_ids=$1, disabled=$2, interest_time=$3 
+				SET career_site_ids=$1, active=$2, interest_time=$3 
 				WHERE user_id=$4 AND company_id=$5`,
-				pq.Array(newCareerSiteIDs64), *sub.Disabled, now, userID, companyID)
-		case updateRoleNames && updateDisabled:
+				pq.Array(newCareerSiteIDs64), *sub.Active, now, userID, companyID)
+		case updateRoleNames && updateActive:
 			_, execErr = db.DB.Exec(`
 				UPDATE subscriptions 
-				SET role_ids=$1, disabled=$2, interest_time=$3 
+				SET role_ids=$1, active=$2, interest_time=$3 
 				WHERE user_id=$4 AND company_id=$5`,
-				pq.Array(newRoleIDs64), *sub.Disabled, now, userID, companyID)
+				pq.Array(newRoleIDs64), *sub.Active, now, userID, companyID)
 		case updateCareerLinks:
 			_, execErr = db.DB.Exec(`
 				UPDATE subscriptions 
@@ -654,12 +658,12 @@ func UpdateSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 				SET role_ids=$1, interest_time=$2 
 				WHERE user_id=$3 AND company_id=$4`,
 				pq.Array(newRoleIDs64), now, userID, companyID)
-		case updateDisabled:
+		case updateActive:
 			_, execErr = db.DB.Exec(`
 				UPDATE subscriptions 
-				SET disabled=$1, interest_time=$2 
+				SET active=$1, interest_time=$2 
 				WHERE user_id=$3 AND company_id=$4`,
-				*sub.Disabled, now, userID, companyID)
+				*sub.Active, now, userID, companyID)
 		}
 
 		if execErr != nil {

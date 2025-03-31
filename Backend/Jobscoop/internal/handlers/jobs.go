@@ -7,8 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"strings"
 
 	"github.com/lib/pq"
 )
@@ -119,3 +117,39 @@ func GetAllJobs(w http.ResponseWriter, r *http.Request) {
 
 }
 
+const (
+	ScrapingDogLinkedInAPI = "http://api.scrapingdog.com/linkedinjobs"
+	// ScrapingDogIndeedAPI   = "http://api.scrapingdog.com/indeed"
+)
+
+func fetchLinkedInJobs(apiKey, field, geoid, page, sort_by string) ([]map[string]interface{}, error) {
+	params := url.Values{}
+	params.Add("api_key", apiKey)
+	params.Add("field", field)
+	params.Add("geoid", geoid)
+	params.Add("page", page)
+	params.Add("sort_by", sort_by)
+	// params.Add("filter_by_company", filter_by_company)
+	url := ScrapingDogLinkedInAPI + "?" + params.Encode()
+	// fmt.Println(url)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// LinkedIn returns an array, so we parse into a slice of maps
+	var apiResponse []map[string]interface{}
+	err = json.Unmarshal(body, &apiResponse)
+	if err != nil {
+		return nil, err
+	}
+	// fmt.Println("I am here in fetchlinkedin jobs and this below is the output.")
+	// fmt.Println(apiResponse)
+	return apiResponse, nil
+}

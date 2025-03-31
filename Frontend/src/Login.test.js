@@ -32,7 +32,7 @@ Object.defineProperty(window, 'localStorage', { value: mockLocalStorage });
 // Helper function to render the component with necessary providers
 const renderLoginComponent = (authContextValue = { login: jest.fn() }) => {
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthContext.Provider value={authContextValue}>
         <Routes>
           <Route path="/" element={<Login />} />

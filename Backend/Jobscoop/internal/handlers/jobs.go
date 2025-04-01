@@ -40,7 +40,7 @@ func GetAllJobs(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.DB.Query(`
 		SELECT id, company_id, career_site_ids, role_ids 
 		FROM subscriptions 
-		WHERE user_id=$1`, userID)
+		WHERE user_id=$1 AND active=$2`, userID, true)
 	if err != nil {
 		http.Error(w, `{"message": "Database error fetching subscriptions"}`, http.StatusInternalServerError)
 		return
